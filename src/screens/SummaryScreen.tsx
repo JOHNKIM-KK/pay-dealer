@@ -83,7 +83,12 @@ export function SummaryScreen() {
         label="이번 판"
         onClick={() => navigate(game.rounds.length > 0 || game.gwangSales.length > 0 ? '/round' : '/play')}
       />
-      <ScreenTitle kicker={`현재 ${game.rounds.length}판`}>오늘의 고스톱</ScreenTitle>
+      <ScreenTitle
+        kicker={`페이딜러 · ${game.rounds.length}판`}
+        description="지금까지 이긴 금액을 한눈에 보여드려요."
+      >
+        오늘 점수
+      </ScreenTitle>
 
       <section className="mb-6 overflow-hidden rounded-3xl bg-white">
         {ranked.map((player, index) => (

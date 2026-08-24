@@ -43,7 +43,12 @@ export function SettleScreen() {
         </PrimaryButton>
       }
     >
-      <ScreenTitle kicker={`${game.rounds.length}판`}>최종 정산</ScreenTitle>
+      <ScreenTitle
+        kicker={`페이딜러 · ${game.rounds.length}판`}
+        description="보낼 사람만 남기고, 횟수는 줄여서 보여드려요."
+      >
+        최종 정산
+      </ScreenTitle>
 
       <section className="mb-8 overflow-hidden rounded-3xl bg-white">
         {ranked.map((player, index) => (
@@ -59,10 +64,10 @@ export function SettleScreen() {
         ))}
       </section>
 
-      <h2 className="mb-3 text-[17px] font-bold">이렇게 정산하세요</h2>
+      <h2 className="mb-3 text-[17px] font-bold">이렇게만 보내면 돼요</h2>
       {transfers.length === 0 ? (
         <p className="rounded-3xl bg-white px-5 py-6 text-[15px] text-[#8B95A1]">
-          주고받을 금액이 없습니다.
+          주고받을 금액이 없어요.
         </p>
       ) : (
         <div className="overflow-hidden rounded-3xl bg-white">

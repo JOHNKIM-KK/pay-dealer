@@ -49,7 +49,10 @@ export function SetupScreen() {
           navigate('/')
         }}
       />
-      <ScreenTitle description="대기 명단은 계속 추가하고, 앉을 사람은 판마다 고르면 돼요.">
+      <ScreenTitle
+        kicker="페이딜러"
+        description="대기 명단은 계속 추가하고, 앉을 사람은 판마다 고르면 돼요."
+      >
         게임 설정
       </ScreenTitle>
 

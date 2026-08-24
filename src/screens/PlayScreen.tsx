@@ -70,7 +70,7 @@ function SeatStep() {
       />
       <ScreenTitle
         kicker={`${count} / ${MAX_PARTICIPANTS}명`}
-        description="대기 명단에서 이번 판에 앉을 사람을 고르세요. 최대 4명."
+        description="이번 판에 앉을 사람만 골라주세요. 최대 4명이에요."
       >
         누가 치나요?
       </ScreenTitle>
@@ -162,9 +162,9 @@ function GwangStep() {
     return (
       <ScreenShell>
         <BackButton label="참가자" onClick={() => setPlayStep('seat')} />
-        <ScreenTitle kicker="광팔기" description="선은 광을 사지 않아요.">
-          선이 누구인가요?
-        </ScreenTitle>
+      <ScreenTitle kicker="광팔기" description="광은 선이 사지 않아요. 선만 골라주세요.">
+        선이 누구인가요?
+      </ScreenTitle>
         <PickGrid
           players={seated}
           onPick={(id) => {
@@ -192,7 +192,7 @@ function GwangStep() {
         }
       >
         <BackButton label="선 다시 선택" onClick={() => setDealer('')} />
-        <ScreenTitle kicker="광팔기" description="선을 제외한 사람 중에서 고르세요.">
+        <ScreenTitle kicker="광팔기" description="선은 빼고, 광을 판 사람만 골라주세요.">
           광 판 사람은요?
         </ScreenTitle>
         <PickGrid
@@ -229,7 +229,9 @@ function GwangStep() {
       }
     >
       <BackButton label="판 사람" onClick={() => setSeller('')} />
-      <ScreenTitle kicker="광팔기">몇 장 팔았나요?</ScreenTitle>
+      <ScreenTitle kicker="광팔기" description="장 수만 알려주세요. 금액은 바로 계산돼요.">
+        몇 장 팔았나요?
+      </ScreenTitle>
 
       <div className="step-in">
         <div className="flex flex-col items-center">
@@ -301,7 +303,10 @@ function WinnerStep() {
         onClick={() => setPlayStep(backToGwang ? 'gwang' : 'seat')}
       />
       <StepDots step={0} />
-      <ScreenTitle kicker={game.rounds.length > 0 ? `${game.rounds.length + 1}판` : '이번 판'}>
+      <ScreenTitle
+        kicker={game.rounds.length > 0 ? `${game.rounds.length + 1}판` : '이번 판'}
+        description="승자만 골라주세요. 계산은 페이딜러가 할게요."
+      >
         누가 이겼나요?
       </ScreenTitle>
       <PickGrid
@@ -355,7 +360,12 @@ function ScoreStep() {
     >
       <BackButton label="승자 다시 선택" onClick={() => setPlayStep('winner')} />
       <StepDots step={1} />
-      <ScreenTitle kicker={`${subjectGa(winner.name)} 이겼어요`}>몇 점인가요?</ScreenTitle>
+      <ScreenTitle
+        kicker={`${subjectGa(winner.name)} 이겼어요`}
+        description="최종 점수만 알려주세요."
+      >
+        몇 점인가요?
+      </ScreenTitle>
 
       <div className="step-in">
         <div className="flex flex-col items-center">
@@ -461,7 +471,9 @@ function PenaltyStep() {
     >
       <BackButton label="점수" onClick={() => setPlayStep('score')} />
       <StepDots step={2} />
-      <ScreenTitle description="박이나 첫뻑만 골라주세요.">특수사항</ScreenTitle>
+      <ScreenTitle description="해당되는 것만 골라주세요. 없으면 바로 정산해도 돼요.">
+        특수사항
+      </ScreenTitle>
 
       <div className="step-in flex flex-col gap-3">
         {losers.map((player) => {

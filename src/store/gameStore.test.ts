@@ -155,4 +155,22 @@ describe('game flow', () => {
     expect(amounts[buyerA.id]).toBe(-2000)
     expect(amounts[buyerB.id]).toBe(-2000)
   })
+
+  it('최근 게임을 삭제한다', () => {
+    const store = useGameStore.getState()
+    store.startNewGame()
+    store.addPlayer()
+    store.beginGame()
+    store.confirmSeats()
+    const playing = useGameStore.getState().currentGame!
+    store.setDealer(playing.players[0].id)
+    store.setSeller(playing.players[1].id)
+    store.commitGwangSale()
+    store.goHome()
+
+    const recent = useGameStore.getState().recentGames
+    expect(recent).toHaveLength(1)
+    store.removeRecentGame(recent[0].id)
+    expect(useGameStore.getState().recentGames).toHaveLength(0)
+  })
 })

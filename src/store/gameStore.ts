@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { createJSONStorage, persist } from 'zustand/middleware'
 import { gwangBuyers } from '../engine/gwang.ts'
 import {
   DEFAULT_GWANG_UNIT,
@@ -13,7 +13,11 @@ import {
 } from '../engine/rules.ts'
 import { createId } from '../lib/id.ts'
 import { isDuplicateName, nextPlayerLabel, normalizeName } from '../lib/names.ts'
+import { BRAND } from '../brand.ts'
 import type { DraftRound, Game, LastResult, Player, Rule } from '../types/game.ts'
+
+const STORAGE_KEY = BRAND.en
+const LEGACY_STORAGE_KEY = 'gostop-settlement'
 
 const emptyDraft = (playerCount = MIN_PARTICIPANTS): DraftRound => ({
   step: 'seat',
@@ -73,6 +77,7 @@ interface GameStore {
   installDismissed: boolean
   startNewGame: () => void
   resumeGame: (gameId: string) => void
+  removeRecentGame: (gameId: string) => void
   setPlayerName: (playerId: string, name: string) => void
   addPlayer: () => boolean
   addNamedPlayer: (name: string) => boolean
@@ -147,6 +152,12 @@ export const useGameStore = create<GameStore>()(
           recentGames: parked.filter((game) => game.id !== gameId).slice(0, 10),
           draftRound: emptyDraft(fromRecent.participantIds.length || MIN_PARTICIPANTS),
           lastResult: null,
+        })
+      },
+
+      removeRecentGame: (gameId) => {
+        set({
+          recentGames: get().recentGames.filter((game) => game.id !== gameId),
         })
       },
 
@@ -564,8 +575,17 @@ export const useGameStore = create<GameStore>()(
       dismissInstall: () => set({ installDismissed: true }),
     }),
     {
-      name: 'gostop-settlement',
+      name: STORAGE_KEY,
       version: 3,
+      storage: createJSONStorage(() => ({
+        getItem: (name) => {
+          const next = localStorage.getItem(name)
+          if (next) return next
+          return localStorage.getItem(LEGACY_STORAGE_KEY)
+        },
+        setItem: (name, value) => localStorage.setItem(name, value),
+        removeItem: (name) => localStorage.removeItem(name),
+      })),
       migrate: (persisted) => {
         const state = persisted as {
           draftRound?: Partial<DraftRound>

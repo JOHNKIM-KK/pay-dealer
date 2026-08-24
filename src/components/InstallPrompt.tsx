@@ -31,8 +31,8 @@ export function InstallPrompt() {
 
   return (
     <section className="mt-6 rounded-3xl bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-      <p className="text-[15px] font-semibold text-[#191F28]">다음에도 바로 사용하시겠어요?</p>
-      <p className="mt-1 text-sm text-[#8B95A1]">홈 화면에 추가하면 앱처럼 켤 수 있어요.</p>
+      <p className="text-[15px] font-semibold text-[#191F28]">페이딜러를 홈 화면에 둘까요?</p>
+      <p className="mt-1 text-sm text-[#8B95A1]">고스톱 계산기를 다음에 앱처럼 바로 켤 수 있어요.</p>
       <div className="mt-4 flex gap-2">
         <button
           type="button"

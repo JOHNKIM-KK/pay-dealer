@@ -55,7 +55,10 @@ export function RoundResultScreen() {
           </div>
         }
       >
-        <ScreenTitle kicker="광팔기">
+        <ScreenTitle
+          kicker="페이딜러 · 광팔기"
+          description="광 산 사람만 계산에 들어가요."
+        >
           {playerName(sale.sellerId)} · {sale.count}장
         </ScreenTitle>
         <p className="mb-4 text-sm text-[#8B95A1]">
@@ -99,7 +102,12 @@ export function RoundResultScreen() {
         </div>
       }
     >
-      <ScreenTitle kicker={`${game.rounds.length}판`}>이번 판</ScreenTitle>
+      <ScreenTitle
+        kicker={`페이딜러 · ${game.rounds.length}판`}
+        description="눌러보면 계산이 나와요."
+      >
+        이번 판
+      </ScreenTitle>
 
       <div className="rise-in flex flex-col gap-2">
         {result.breakdowns.map((item) => (

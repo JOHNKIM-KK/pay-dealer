@@ -1,6 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="고스톱 정산판">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="페이딜러">
   <rect width="512" height="512" rx="112" fill="#3182F6"/>
-  <rect x="150" y="146" width="168" height="228" rx="28" fill="#ffffff" opacity="0.35" transform="rotate(-12 234 260)"/>
-  <rect x="196" y="132" width="168" height="228" rx="28" fill="#ffffff"/>
-  <circle cx="280" cy="214" r="26" fill="#3182F6"/>
+  <rect x="118" y="156" width="196" height="268" rx="32" fill="#ffffff" opacity="0.28" transform="rotate(-16 216 290)"/>
+  <rect x="176" y="128" width="196" height="268" rx="32" fill="#ffffff"/>
+  <circle cx="274" cy="216" r="34" fill="#3182F6"/>
+  <path fill="#ffffff" d="M255 200h38v8h-14.2l2.4 10H292v8h-9.6l2.6 11H292v8h-38v-8h12.4l-2.6-11H255v-8h10.2l-2.4-10H255v-8zm22.6 18H266l2.4 10h11.8l-2.6-10z"/>
+  <rect x="232" y="292" width="84" height="12" rx="6" fill="#3182F6" opacity="0.28"/>
+  <rect x="246" y="322" width="56" height="12" rx="6" fill="#3182F6" opacity="0.18"/>
 </svg>
