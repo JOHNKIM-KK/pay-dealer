@@ -15,9 +15,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'pwa-192.png', 'pwa-512.png'],
       manifest: {
-        name: '고스톱 정산판',
-        short_name: '고스톱',
-        description: '고스톱 계산을 간단하게 해보세요.',
+        name: '페이딜러',
+        short_name: '페이딜러',
+        description: '고스톱 계산기. 점수만 알려주세요. 계산은 페이딜러가 할게요.',
         theme_color: '#3182F6',
         background_color: '#F2F4F6',
         display: 'standalone',

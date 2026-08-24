@@ -1,9 +1,9 @@
 import { useEffect } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { AmountText } from '../components/AmountText.tsx'
-import { PrimaryButton } from '../components/Button.tsx'
+import { GhostButton, PrimaryButton, SecondaryButton } from '../components/Button.tsx'
 import { ScreenShell, ScreenTitle } from '../components/ScreenShell.tsx'
-import { accumulateTotals } from '../engine/round.ts'
+import { accumulateTotals, hasCarriedBalances } from '../engine/round.ts'
 import { minimizeTransfers } from '../engine/settlement.ts'
 import { formatWonPlain } from '../lib/format.ts'
 import { useGameStore } from '../store/gameStore.ts'
@@ -13,14 +13,26 @@ export function SettleScreen() {
   const game = useGameStore((state) => state.currentGame)
   const goHome = useGameStore((state) => state.goHome)
   const finishGame = useGameStore((state) => state.finishGame)
+  const startNewGameWithMembers = useGameStore((state) => state.startNewGameWithMembers)
+  const continueFromSettlement = useGameStore((state) => state.continueFromSettlement)
 
   useEffect(() => {
-    if (game?.status === 'playing') finishGame()
-  }, [game?.status, finishGame])
+    if (
+      game?.status === 'playing' &&
+      (game.rounds.length > 0 || game.gwangSales.length > 0)
+    ) {
+      finishGame()
+    }
+  }, [game?.status, game?.rounds.length, game?.gwangSales.length, finishGame])
 
   if (!game) return <Navigate to="/" replace />
   if (game.status === 'setup') return <Navigate to="/setup" replace />
-  if (game.rounds.length === 0 && game.gwangSales.length === 0) return <Navigate to="/play" replace />
+  if (game.status === 'playing' && game.rounds.length === 0 && game.gwangSales.length === 0) {
+    return <Navigate to="/play" replace />
+  }
+  if (game.rounds.length === 0 && game.gwangSales.length === 0 && !hasCarriedBalances(game)) {
+    return <Navigate to="/play" replace />
+  }
 
   const totals = accumulateTotals(game)
   const transfers = minimizeTransfers(totals)
@@ -29,21 +41,49 @@ export function SettleScreen() {
   )
   const playerName = (id: string) =>
     game.players.find((player) => player.id === id)?.name ?? id
+  const carried = hasCarriedBalances(game)
 
   return (
     <ScreenShell
       footer={
-        <PrimaryButton
-          onClick={() => {
-            goHome()
-            navigate('/')
-          }}
-        >
-          홈으로
-        </PrimaryButton>
+        <div className="flex flex-col gap-2">
+          <PrimaryButton
+            onClick={() => {
+              continueFromSettlement()
+              navigate('/play')
+            }}
+          >
+            이 금액으로 이어하기
+          </PrimaryButton>
+          <SecondaryButton
+            onClick={() => {
+              startNewGameWithMembers()
+              navigate('/setup')
+            }}
+          >
+            이 멤버로 새 게임
+          </SecondaryButton>
+          <GhostButton
+            onClick={() => {
+              goHome()
+              navigate('/')
+            }}
+          >
+            홈으로
+          </GhostButton>
+        </div>
       }
     >
-      <ScreenTitle kicker={`${game.rounds.length}판`}>최종 정산</ScreenTitle>
+      <ScreenTitle
+        kicker={`페이딜러 · ${game.rounds.length}판`}
+        description="보낼 사람만 남기고, 횟수는 줄여서 보여드려요."
+      >
+        최종 정산
+      </ScreenTitle>
+
+      {carried ? (
+        <p className="mb-4 text-sm text-[#8B95A1]">이전 게임 잔액을 이어왔어요.</p>
+      ) : null}
 
       <section className="mb-8 overflow-hidden rounded-3xl bg-white">
         {ranked.map((player, index) => (
@@ -59,10 +99,10 @@ export function SettleScreen() {
         ))}
       </section>
 
-      <h2 className="mb-3 text-[17px] font-bold">이렇게 정산하세요</h2>
+      <h2 className="mb-3 text-[17px] font-bold">이렇게만 보내면 돼요</h2>
       {transfers.length === 0 ? (
         <p className="rounded-3xl bg-white px-5 py-6 text-[15px] text-[#8B95A1]">
-          주고받을 금액이 없습니다.
+          주고받을 금액이 없어요.
         </p>
       ) : (
         <div className="overflow-hidden rounded-3xl bg-white">

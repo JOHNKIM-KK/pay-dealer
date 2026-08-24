@@ -30,8 +30,10 @@ export interface Round {
   winnerId: string
   score: number
   goType: string | null
+  cheotppeokPlayerId: string | null
   penalties: Penalty[]
   participantIds: string[]
+  sitOutId?: string | null
 }
 
 export interface GwangSale {
@@ -48,6 +50,7 @@ export interface DraftRound {
   winnerId: string | null
   score: number
   goType: string | null
+  cheotppeokPlayerId: string | null
   selectedRules: Record<string, string[]>
   dealerId: string | null
   sellerId: string | null
@@ -66,9 +69,11 @@ export interface Game {
   participantIds: string[]
   pointUnit: number
   gwangUnit: number
+  cheotppeokUnit: number
   rules: Rule[]
   rounds: Round[]
   gwangSales: GwangSale[]
+  openingBalances?: Record<string, number>
   status: GameStatus
 }
 
@@ -87,6 +92,7 @@ export interface PlayerBreakdown {
   multipliers: AppliedRule[]
   effectiveScore: number
   multiplierProduct: number
+  cheotppeokAmount: number
   amount: number
 }
 

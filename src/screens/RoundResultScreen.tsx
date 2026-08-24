@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { AmountText } from '../components/AmountText.tsx'
 import { PrimaryButton, SecondaryButton } from '../components/Button.tsx'
-import { ScreenShell, ScreenTitle } from '../components/ScreenShell.tsx'
+import { BackButton, ScreenShell, ScreenTitle } from '../components/ScreenShell.tsx'
 import { calculateGwangSale } from '../engine/gwang.ts'
 import { calculateRound } from '../engine/round.ts'
-import { formatRuleValue, formatWonPlain } from '../lib/format.ts'
+import { formatRuleValue, formatWon, formatWonPlain } from '../lib/format.ts'
 import { useGameStore } from '../store/gameStore.ts'
 
 export function RoundResultScreen() {
@@ -14,7 +14,13 @@ export function RoundResultScreen() {
   const lastResult = useGameStore((state) => state.lastResult)
   const startNextRound = useGameStore((state) => state.startNextRound)
   const continueAfterGwang = useGameStore((state) => state.continueAfterGwang)
+  const undoLastSettlement = useGameStore((state) => state.undoLastSettlement)
   const [openId, setOpenId] = useState<string | null>(null)
+
+  const goBackToEdit = () => {
+    if (!undoLastSettlement()) return
+    navigate('/play')
+  }
 
   if (!game) return <Navigate to="/" replace />
   if (game.status === 'setup') return <Navigate to="/setup" replace />
@@ -42,20 +48,21 @@ export function RoundResultScreen() {
     return (
       <ScreenShell
         footer={
-          <div className="flex flex-col gap-2">
-            <PrimaryButton
-              onClick={() => {
-                continueAfterGwang()
-                navigate('/play')
-              }}
-            >
-              승자 선택
-            </PrimaryButton>
-            <SecondaryButton onClick={() => navigate('/summary')}>전체 현황</SecondaryButton>
-          </div>
+          <PrimaryButton
+            onClick={() => {
+              continueAfterGwang()
+              navigate('/play')
+            }}
+          >
+            승자 선택
+          </PrimaryButton>
         }
       >
-        <ScreenTitle kicker="광팔기">
+        {lastResult ? <BackButton label="다시 입력" onClick={goBackToEdit} /> : null}
+        <ScreenTitle
+          kicker="페이딜러 · 광팔기"
+          description="광 산 사람만 계산에 들어가요."
+        >
           {playerName(sale.sellerId)} · {sale.count}장
         </ScreenTitle>
         <p className="mb-4 text-sm text-[#8B95A1]">
@@ -99,7 +106,13 @@ export function RoundResultScreen() {
         </div>
       }
     >
-      <ScreenTitle kicker={`${game.rounds.length}판`}>이번 판</ScreenTitle>
+      {lastResult ? <BackButton label="다시 입력" onClick={goBackToEdit} /> : null}
+      <ScreenTitle
+        kicker={`페이딜러 · ${game.rounds.length}판`}
+        description="눌러보면 계산이 나와요."
+      >
+        이번 판
+      </ScreenTitle>
 
       <div className="rise-in flex flex-col gap-2">
         {result.breakdowns.map((item) => (
@@ -135,6 +148,9 @@ export function RoundResultScreen() {
                     {rule.name} {formatRuleValue(rule.type, rule.value)}
                   </p>
                 ))}
+                {item.cheotppeokAmount !== 0 ? (
+                  <p>첫뻑 {formatWon(item.cheotppeokAmount)}</p>
+                ) : null}
                 {item.role === 'loser' ? (
                   <p className="mt-2 font-medium text-[#191F28]">
                     ({item.effectiveScore} × {item.multiplierProduct} ×{' '}

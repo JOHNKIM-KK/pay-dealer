@@ -1,7 +1,7 @@
 import { Navigate, useNavigate } from 'react-router-dom'
 import { BackButton, ScreenShell, ScreenTitle } from '../components/ScreenShell.tsx'
 import { PrimaryButton } from '../components/Button.tsx'
-import { MIN_PLAYERS } from '../engine/rules.ts'
+import { MIN_PLAYERS, isGoRule } from '../engine/rules.ts'
 import { formatRuleValue } from '../lib/format.ts'
 import { isDuplicateName, normalizeName } from '../lib/names.ts'
 import { useGameStore } from '../store/gameStore.ts'
@@ -14,8 +14,10 @@ export function SetupScreen() {
   const removePlayer = useGameStore((state) => state.removePlayer)
   const setPointUnit = useGameStore((state) => state.setPointUnit)
   const setGwangUnit = useGameStore((state) => state.setGwangUnit)
+  const setCheotppeokUnit = useGameStore((state) => state.setCheotppeokUnit)
   const toggleRule = useGameStore((state) => state.toggleRule)
   const setRuleValue = useGameStore((state) => state.setRuleValue)
+  const setRuleType = useGameStore((state) => state.setRuleType)
   const beginGame = useGameStore((state) => state.beginGame)
   const goHome = useGameStore((state) => state.goHome)
 
@@ -49,7 +51,10 @@ export function SetupScreen() {
           navigate('/')
         }}
       />
-      <ScreenTitle description="대기 명단은 계속 추가하고, 앉을 사람은 판마다 고르면 돼요.">
+      <ScreenTitle
+        kicker="페이딜러"
+        description="대기 명단은 계속 추가하고, 앉을 사람은 판마다 고르면 돼요."
+      >
         게임 설정
       </ScreenTitle>
 
@@ -96,7 +101,7 @@ export function SetupScreen() {
           <p className="mt-2 text-sm text-[#F04452]">이름이 겹치면 시작할 수 없어요.</p>
         ) : (
           <p className="mt-3 text-sm text-[#8B95A1]">
-            참가자는 최대 4명까지, 시작 후 고릅니다. 4명이 앉으면 광팔기가 켜져요.
+            2명이면 맞고, 3명이면 고스톱이에요. 4명이 앉으면 광팔기가 켜져요.
           </p>
         )}
       </section>
@@ -117,6 +122,15 @@ export function SetupScreen() {
         plusLabel="광팔기 단가 늘리기"
       />
 
+      <MoneyStepper
+        label="첫뻑 금액"
+        value={game.cheotppeokUnit}
+        onChange={setCheotppeokUnit}
+        minusLabel="첫뻑 금액 줄이기"
+        plusLabel="첫뻑 금액 늘리기"
+        hint="첫뻑한 사람 빼고 나머지가 각자 내는 금액이에요."
+      />
+
       <section className="mb-4">
         <h2 className="mb-3 text-sm font-semibold text-[#8B95A1]">정산 규칙</h2>
         <div className="overflow-hidden rounded-3xl bg-white">
@@ -129,7 +143,37 @@ export function SetupScreen() {
             >
               <div>
                 <p className="font-semibold">{rule.name}</p>
-                <div className="mt-1 flex items-center gap-2 text-sm text-[#8B95A1]">
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-[#8B95A1]">
+                  {isGoRule(rule.id) ? (
+                    <div className="flex rounded-full bg-[#F2F4F6] p-0.5">
+                      <button
+                        type="button"
+                        aria-pressed={rule.type === 'ADDITIVE'}
+                        aria-label={`${rule.name} 더하기`}
+                        onClick={() => setRuleType(rule.id, 'ADDITIVE')}
+                        className={`h-7 rounded-full px-2.5 text-xs font-semibold ${
+                          rule.type === 'ADDITIVE'
+                            ? 'bg-white text-[#191F28] shadow-[0_1px_2px_rgba(0,0,0,0.06)]'
+                            : 'text-[#8B95A1]'
+                        }`}
+                      >
+                        +점
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={rule.type === 'MULTIPLIER'}
+                        aria-label={`${rule.name} 곱하기`}
+                        onClick={() => setRuleType(rule.id, 'MULTIPLIER')}
+                        className={`h-7 rounded-full px-2.5 text-xs font-semibold ${
+                          rule.type === 'MULTIPLIER'
+                            ? 'bg-white text-[#191F28] shadow-[0_1px_2px_rgba(0,0,0,0.06)]'
+                            : 'text-[#8B95A1]'
+                        }`}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ) : null}
                   <button
                     type="button"
                     aria-label={`${rule.name} 값 줄이기`}
@@ -181,12 +225,14 @@ function MoneyStepper({
   onChange,
   minusLabel,
   plusLabel,
+  hint,
 }: {
   label: string
   value: number
   onChange: (value: number) => void
   minusLabel: string
   plusLabel: string
+  hint?: string
 }) {
   return (
     <section className="mb-8">
@@ -220,6 +266,7 @@ function MoneyStepper({
           +
         </button>
       </div>
+      {hint ? <p className="mt-3 text-sm text-[#8B95A1]">{hint}</p> : null}
     </section>
   )
 }

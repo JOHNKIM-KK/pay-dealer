@@ -1,4 +1,4 @@
-import { calculateGwangSale } from './gwang.ts'
+import { calculateGwangSale, sittingOutIdForRound } from './gwang.ts'
 import type { AppliedRule, Game, Player, PlayerBreakdown, Round, RoundResult, Rule } from '../types/game.ts'
 
 function resolveGo(
@@ -22,17 +22,43 @@ function seatedPlayers(game: Pick<Game, 'players'>, participantIds: string[]): P
   return game.players.filter((player) => seated.has(player.id))
 }
 
+function goParts(go: AppliedRule | null): {
+  additive: number
+  multiplier: number
+  additives: AppliedRule[]
+  multipliers: AppliedRule[]
+} {
+  if (!go) {
+    return { additive: 0, multiplier: 1, additives: [], multipliers: [] }
+  }
+  if (go.type === 'ADDITIVE') {
+    return { additive: go.value, multiplier: 1, additives: [go], multipliers: [] }
+  }
+  return { additive: 0, multiplier: go.value, additives: [], multipliers: [go] }
+}
+
+function toApplied(rule: Rule): AppliedRule {
+  return {
+    id: rule.id,
+    name: rule.name,
+    type: rule.type,
+    value: rule.value,
+  }
+}
+
 export function calculateRound(
-  game: Pick<Game, 'players' | 'pointUnit' | 'rules'>,
+  game: Pick<Game, 'players' | 'pointUnit' | 'cheotppeokUnit' | 'rules' | 'rounds' | 'gwangSales'>,
   round: Round,
 ): RoundResult {
   const ruleById = new Map(game.rules.map((rule) => [rule.id, rule]))
   const amounts: Record<string, number> = {}
   const loserBreakdowns: PlayerBreakdown[] = []
-  const go = resolveGo(game, round)
-  const goValue = go?.value ?? 0
-  const baseScore = round.score + goValue
-  const seated = seatedPlayers(game, round.participantIds)
+  const go = goParts(resolveGo(game, round))
+  const baseScore = round.score + go.additive
+  const sitOut = sittingOutIdForRound(game, round)
+  const seated = seatedPlayers(game, round.participantIds).filter(
+    (player) => player.id !== sitOut,
+  )
 
   for (const player of game.players) {
     amounts[player.id] = 0
@@ -52,36 +78,23 @@ export function calculateRound(
     const additives = applied.filter((rule) => rule.type === 'ADDITIVE')
     const multipliers = applied.filter((rule) => rule.type === 'MULTIPLIER')
     const additiveSum = additives.reduce((sum, rule) => sum + rule.value, 0)
-    const multiplierProduct = multipliers.reduce((product, rule) => product * rule.value, 1)
+    const multiplierProduct =
+      go.multiplier * multipliers.reduce((product, rule) => product * rule.value, 1)
     const effectiveScore = baseScore + additiveSum
     const payment = effectiveScore * multiplierProduct * game.pointUnit
 
     amounts[player.id] = -payment
     winnerTotal += payment
 
-    const listedAdditives: AppliedRule[] = [
-      ...(go ? [go] : []),
-      ...additives.map((rule) => ({
-        id: rule.id,
-        name: rule.name,
-        type: rule.type,
-        value: rule.value,
-      })),
-    ]
-
     loserBreakdowns.push({
       playerId: player.id,
       role: 'loser',
       score: round.score,
-      additives: listedAdditives,
-      multipliers: multipliers.map((rule) => ({
-        id: rule.id,
-        name: rule.name,
-        type: rule.type,
-        value: rule.value,
-      })),
+      additives: [...go.additives, ...additives.map(toApplied)],
+      multipliers: [...go.multipliers, ...multipliers.map(toApplied)],
       effectiveScore,
       multiplierProduct,
+      cheotppeokAmount: 0,
       amount: -payment,
     })
   }
@@ -92,23 +105,68 @@ export function calculateRound(
     playerId: round.winnerId,
     role: 'winner',
     score: round.score,
-    additives: go ? [go] : [],
-    multipliers: [],
+    additives: go.additives,
+    multipliers: go.multipliers,
     effectiveScore: baseScore,
-    multiplierProduct: 1,
+    multiplierProduct: go.multiplier,
+    cheotppeokAmount: 0,
     amount: winnerTotal,
   }
 
+  const breakdowns = [winnerBreakdown, ...loserBreakdowns]
+  applyCheotppeok(game, round, seated, amounts, breakdowns)
+
   return {
     amounts,
-    breakdowns: [winnerBreakdown, ...loserBreakdowns],
+    breakdowns,
   }
+}
+
+function applyCheotppeok(
+  game: Pick<Game, 'cheotppeokUnit'>,
+  round: Round,
+  seated: Player[],
+  amounts: Record<string, number>,
+  breakdowns: PlayerBreakdown[],
+) {
+  const playerId = round.cheotppeokPlayerId
+  const unit = game.cheotppeokUnit ?? 0
+  if (!playerId || unit <= 0) return
+  if (!seated.some((player) => player.id === playerId)) return
+
+  const others = seated.filter((player) => player.id !== playerId)
+  if (others.length === 0) return
+
+  const received = unit * others.length
+  amounts[playerId] = (amounts[playerId] ?? 0) + received
+  for (const other of others) {
+    amounts[other.id] = (amounts[other.id] ?? 0) - unit
+  }
+
+  for (const breakdown of breakdowns) {
+    if (breakdown.playerId === playerId) {
+      breakdown.cheotppeokAmount = received
+      breakdown.amount += received
+      continue
+    }
+    breakdown.cheotppeokAmount = -unit
+    breakdown.amount -= unit
+  }
+}
+
+export function hasCarriedBalances(game: Pick<Game, 'openingBalances'>): boolean {
+  return Object.values(game.openingBalances ?? {}).some((amount) => amount !== 0)
+}
+
+export function isListedGame(game: Pick<Game, 'status' | 'rounds' | 'gwangSales' | 'openingBalances'>): boolean {
+  if (game.status === 'setup') return false
+  return game.rounds.length > 0 || game.gwangSales.length > 0 || hasCarriedBalances(game)
 }
 
 export function accumulateTotals(game: Game): Record<string, number> {
   const totals: Record<string, number> = {}
   for (const player of game.players) {
-    totals[player.id] = 0
+    totals[player.id] = game.openingBalances?.[player.id] ?? 0
   }
 
   for (const round of game.rounds) {

@@ -131,3 +131,163 @@ input {
 .stagger-4 {
   animation-delay: 160ms;
 }
+
+@keyframes splash-logo {
+  0% {
+    opacity: 0;
+    transform: scale(0.62);
+  }
+  58% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes splash-word {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes splash-leave {
+  to {
+    opacity: 0;
+    transform: translateY(-12%) scale(1.04);
+  }
+}
+
+@keyframes logo-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes logo-bump {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(0.92);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(24px);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes sheet-out {
+  to {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.splash-logo {
+  animation: splash-logo 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.splash-word {
+  animation: splash-word 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.28s both;
+}
+
+.splash-sub {
+  animation: splash-word 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.46s both;
+}
+
+.splash-leave {
+  animation: splash-leave 0.42s cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+.logo-float {
+  animation: logo-float 3.2s ease-in-out infinite;
+}
+
+.logo-bump {
+  animation: logo-bump 0.32s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+
+.home-hero {
+  animation: rise-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.home-copy {
+  animation: rise-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both;
+}
+
+.home-copy-delay {
+  animation: rise-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.16s both;
+}
+
+.home-list {
+  animation: rise-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.22s both;
+}
+
+.sheet-in {
+  animation: sheet-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.sheet-out {
+  animation: sheet-out 0.18s ease both;
+}
+
+.sheet-backdrop-in {
+  animation: fade-in 0.22s ease both;
+}
+
+.sheet-backdrop-out {
+  animation: fade-in 0.18s ease reverse both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-logo,
+  .splash-word,
+  .splash-sub,
+  .splash-leave,
+  .logo-float,
+  .logo-bump,
+  .home-hero,
+  .home-copy,
+  .home-copy-delay,
+  .home-list,
+  .sheet-in,
+  .sheet-out,
+  .rise-in,
+  .step-in,
+  .score-pop,
+  .chip-on,
+  .winner-pick {
+    animation: none;
+  }
+}
