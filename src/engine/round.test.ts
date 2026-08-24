@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { accumulateTotals, calculateRound } from './round.ts'
+import { accumulateTotals, calculateRound, isListedGame } from './round.ts'
 import { DEFAULT_RULES } from './rules.ts'
 import type { Game, Round } from '../types/game.ts'
 
@@ -18,6 +18,7 @@ function makeRound(overrides: Partial<Round> = {}): Round {
     winnerId: 'sohee',
     score: 7,
     goType: null,
+    cheotppeokPlayerId: null,
     penalties: [],
     participantIds: ['sohee', 'myungjun', 'jisu', 'youngjun'],
     ...overrides,
@@ -32,6 +33,7 @@ function makeGame(rounds: Round[] = [], extras: Partial<Game> = {}): Game {
     participantIds: ['sohee', 'myungjun', 'jisu', 'youngjun'],
     pointUnit: 100,
     gwangUnit: 1000,
+    cheotppeokUnit: 500,
     rules: DEFAULT_RULES.map((rule) => ({ ...rule })),
     rounds,
     gwangSales: [],
@@ -152,6 +154,53 @@ describe('calculateRound', () => {
     expect(result.amounts.jisu).toBe(-700)
     expect(result.amounts.sohee).toBe(1400)
   })
+
+  it('첫뻑이면 나머지 앉은 사람이 그 사람에게 금액을 낸다', () => {
+    const result = calculateRound(
+      makeGame(),
+      makeRound({
+        cheotppeokPlayerId: 'youngjun',
+        penalties: [{ playerId: 'myungjun', type: 'PIBAK' }],
+      }),
+    )
+
+    expect(result.amounts.youngjun).toBe(-700 + 1500)
+    expect(result.amounts.myungjun).toBe(-1400 - 500)
+    expect(result.amounts.jisu).toBe(-700 - 500)
+    expect(result.amounts.sohee).toBe(2800 - 500)
+    expect(result.amounts.waiting).toBe(0)
+    expect(result.breakdowns.find((item) => item.playerId === 'youngjun')?.cheotppeokAmount).toBe(
+      1500,
+    )
+    expect(result.breakdowns.find((item) => item.playerId === 'sohee')?.cheotppeokAmount).toBe(-500)
+  })
+
+  it('광 판 사람은 첫뻑 정산에서도 빠진다', () => {
+    const round = makeRound({
+      createdAt: 20,
+      cheotppeokPlayerId: 'sohee',
+    })
+    const result = calculateRound(
+      makeGame([round], {
+        gwangSales: [
+          {
+            id: 'g1',
+            createdAt: 10,
+            dealerId: 'sohee',
+            sellerId: 'youngjun',
+            buyerIds: ['myungjun', 'jisu'],
+            count: 1,
+          },
+        ],
+      }),
+      round,
+    )
+
+    expect(result.amounts.youngjun).toBe(0)
+    expect(result.amounts.sohee).toBe(1400 + 1000)
+    expect(result.amounts.myungjun).toBe(-700 - 500)
+    expect(result.amounts.jisu).toBe(-700 - 500)
+  })
 })
 
 describe('accumulateTotals', () => {
@@ -182,5 +231,48 @@ describe('accumulateTotals', () => {
     expect(totals.jisu).toBe(-700 - 2000)
     expect(totals.youngjun).toBe(-700 - 2000)
     expect(totals.waiting).toBe(0)
+  })
+
+  it('이어온 잔액을 초기값으로 더한다', () => {
+    const game = makeGame(
+      [
+        makeRound({
+          penalties: [{ playerId: 'myungjun', type: 'PIBAK' }],
+        }),
+      ],
+      {
+        openingBalances: {
+          sohee: 1000,
+          myungjun: -500,
+          jisu: 0,
+          youngjun: -500,
+        },
+      },
+    )
+
+    const totals = accumulateTotals(game)
+    expect(totals.sohee).toBe(2800 + 1000)
+    expect(totals.myungjun).toBe(-1400 - 500)
+    expect(totals.jisu).toBe(-700)
+    expect(totals.youngjun).toBe(-700 - 500)
+    expect(totals.waiting).toBe(0)
+  })
+})
+
+describe('isListedGame', () => {
+  it('설정 중이거나 기록이 없으면 목록에 안 넣는다', () => {
+    expect(isListedGame(makeGame([], { status: 'setup' }))).toBe(false)
+    expect(isListedGame(makeGame([], { status: 'playing' }))).toBe(false)
+  })
+
+  it('판이나 이어온 잔액이 있으면 목록에 넣는다', () => {
+    expect(isListedGame(makeGame([makeRound()]))).toBe(true)
+    expect(
+      isListedGame(
+        makeGame([], {
+          openingBalances: { sohee: 1000, myungjun: -1000 },
+        }),
+      ),
+    ).toBe(true)
   })
 })

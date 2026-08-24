@@ -14,6 +14,7 @@ export function SetupScreen() {
   const removePlayer = useGameStore((state) => state.removePlayer)
   const setPointUnit = useGameStore((state) => state.setPointUnit)
   const setGwangUnit = useGameStore((state) => state.setGwangUnit)
+  const setCheotppeokUnit = useGameStore((state) => state.setCheotppeokUnit)
   const toggleRule = useGameStore((state) => state.toggleRule)
   const setRuleValue = useGameStore((state) => state.setRuleValue)
   const setRuleType = useGameStore((state) => state.setRuleType)
@@ -121,6 +122,15 @@ export function SetupScreen() {
         plusLabel="광팔기 단가 늘리기"
       />
 
+      <MoneyStepper
+        label="첫뻑 금액"
+        value={game.cheotppeokUnit}
+        onChange={setCheotppeokUnit}
+        minusLabel="첫뻑 금액 줄이기"
+        plusLabel="첫뻑 금액 늘리기"
+        hint="첫뻑한 사람 빼고 나머지가 각자 내는 금액이에요."
+      />
+
       <section className="mb-4">
         <h2 className="mb-3 text-sm font-semibold text-[#8B95A1]">정산 규칙</h2>
         <div className="overflow-hidden rounded-3xl bg-white">
@@ -215,12 +225,14 @@ function MoneyStepper({
   onChange,
   minusLabel,
   plusLabel,
+  hint,
 }: {
   label: string
   value: number
   onChange: (value: number) => void
   minusLabel: string
   plusLabel: string
+  hint?: string
 }) {
   return (
     <section className="mb-8">
@@ -254,6 +266,7 @@ function MoneyStepper({
           +
         </button>
       </div>
+      {hint ? <p className="mt-3 text-sm text-[#8B95A1]">{hint}</p> : null}
     </section>
   )
 }

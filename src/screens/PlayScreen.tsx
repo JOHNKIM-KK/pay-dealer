@@ -12,6 +12,7 @@ import {
   gwangSaleThisCycle,
   playingParticipantIds,
 } from "../engine/gwang.ts";
+import { hasCarriedBalances } from "../engine/round.ts";
 import {
   MAX_PARTICIPANTS,
   MIN_PARTICIPANTS,
@@ -56,36 +57,49 @@ function SeatStep() {
   const toggleParticipant = useGameStore((state) => state.toggleParticipant);
   const addNamedPlayer = useGameStore((state) => state.addNamedPlayer);
   const confirmSeats = useGameStore((state) => state.confirmSeats);
+  const goHome = useGameStore((state) => state.goHome);
+  const returnToSetup = useGameStore((state) => state.returnToSetup);
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const count = game.participantIds.length;
   const canStart = count >= MIN_PARTICIPANTS && count <= MAX_PARTICIPANTS;
+  const hasHistory =
+    game.rounds.length > 0 ||
+    game.gwangSales.length > 0 ||
+    hasCarriedBalances(game);
 
   return (
     <ScreenShell
       footer={
-        <PrimaryButton
-          disabled={!canStart}
-          onClick={() => {
-            haptic(12);
-            confirmSeats();
-          }}
-        >
-          {count >= MAX_PARTICIPANTS ? "광팔기로" : "이번 판 시작"}
-        </PrimaryButton>
+        <div className="flex flex-col gap-2">
+          <PrimaryButton
+            disabled={!canStart}
+            onClick={() => {
+              haptic(12);
+              confirmSeats();
+            }}
+          >
+            {count >= MAX_PARTICIPANTS ? "광팔기로" : "이번 판 시작"}
+          </PrimaryButton>
+          {hasHistory ? (
+            <SecondaryButton onClick={() => navigate("/summary")}>
+              오늘 점수
+            </SecondaryButton>
+          ) : null}
+        </div>
       }
     >
       <BackButton
-        label={
-          game.rounds.length > 0 || game.gwangSales.length > 0 ? "현황" : "홈"
-        }
-        onClick={() =>
-          navigate(
-            game.rounds.length > 0 || game.gwangSales.length > 0
-              ? "/summary"
-              : "/",
-          )
-        }
+        label={hasHistory ? "홈" : "게임 설정"}
+        onClick={() => {
+          if (hasHistory) {
+            goHome();
+            navigate("/");
+            return;
+          }
+          if (!returnToSetup()) return;
+          navigate("/setup");
+        }}
       />
       <ScreenTitle
         kicker={`${count} / ${MAX_PARTICIPANTS}명`}
@@ -327,7 +341,6 @@ function gwangPendingThisCycle(game: Game): boolean {
 }
 
 function WinnerStep() {
-  const navigate = useNavigate();
   const game = useGameStore((state) => state.currentGame)!;
   const sellerId = useGameStore((state) => state.draftRound.sellerId);
   const setWinner = useGameStore((state) => state.setWinner);
@@ -366,21 +379,6 @@ function WinnerStep() {
           window.setTimeout(() => setWinner(id), 240);
         }}
       />
-      <button
-        type="button"
-        onClick={() =>
-          navigate(
-            game.rounds.length > 0 || game.gwangSales.length > 0
-              ? "/summary"
-              : "/",
-          )
-        }
-        className="pressable mt-6 min-h-11 text-sm font-medium text-[#8B95A1]"
-      >
-        {game.rounds.length > 0 || game.gwangSales.length > 0
-          ? "현황 보기"
-          : "홈"}
-      </button>
     </ScreenShell>
   );
 }
@@ -478,7 +476,9 @@ function ScoreStep() {
 
         {goRules.length > 0 ? (
           <section className="mt-8">
-            <h2 className="mb-3 text-sm font-semibold text-[#8B95A1]">고</h2>
+            <h2 className="mb-3 text-sm font-semibold text-[#8B95A1]">
+              점수 추가
+            </h2>
             <div className="grid grid-cols-3 gap-2">
               {goRules.map((rule) => {
                 const on = draft.goType === rule.id;
@@ -519,6 +519,7 @@ function PenaltyStep() {
   const game = useGameStore((state) => state.currentGame)!;
   const draft = useGameStore((state) => state.draftRound);
   const togglePenalty = useGameStore((state) => state.togglePenalty);
+  const toggleCheotppeok = useGameStore((state) => state.toggleCheotppeok);
   const setPlayStep = useGameStore((state) => state.setPlayStep);
   const commitRound = useGameStore((state) => state.commitRound);
   const loserRules = game.rules.filter(
@@ -552,46 +553,78 @@ function PenaltyStep() {
             : "해당되는 것만 골라주세요. 없으면 바로 정산해도 돼요."
         }
       >
-        특수사항
+        박 있어요?
       </ScreenTitle>
 
-      <div className="step-in flex flex-col gap-3">
-        {losers.map((player) => {
-          const selected = draft.selectedRules[player.id] ?? [];
-          return (
-            <section key={player.id} className="rounded-3xl bg-white p-4">
-              <h2 className="mb-3 text-[17px] font-bold">{player.name}</h2>
-              <div className="flex flex-wrap gap-2">
-                {loserRules.map((rule) => {
-                  const on = selected.includes(rule.id);
-                  return (
-                    <button
-                      key={rule.id}
-                      type="button"
-                      aria-pressed={on}
-                      onClick={() => {
-                        haptic(10);
-                        togglePenalty(player.id, rule.id);
-                      }}
-                      className={`pressable min-h-11 rounded-full px-3.5 text-sm font-semibold ${
-                        on
-                          ? "chip-on bg-[#3182F6] text-white shadow-[0_6px_14px_rgba(49,130,246,0.25)]"
-                          : "bg-[#F2F4F6] text-[#4E5968]"
-                      }`}
-                    >
-                      {on ? `✓ ${rule.name}` : rule.name}
-                      <span
-                        className={`ml-1 ${on ? "text-white/80" : "text-[#8B95A1]"}`}
+      <div className="step-in">
+        <div className="flex flex-col gap-3">
+          {losers.map((player) => {
+            const selected = draft.selectedRules[player.id] ?? [];
+            return (
+              <section key={player.id} className="rounded-3xl bg-white p-4">
+                <h2 className="mb-3 text-[17px] font-bold">{player.name}</h2>
+                <div className="flex flex-wrap gap-2">
+                  {loserRules.map((rule) => {
+                    const on = selected.includes(rule.id);
+                    return (
+                      <button
+                        key={rule.id}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => {
+                          haptic(10);
+                          togglePenalty(player.id, rule.id);
+                        }}
+                        className={`pressable min-h-11 rounded-full px-3.5 text-sm font-semibold ${
+                          on
+                            ? "chip-on bg-[#3182F6] text-white shadow-[0_6px_14px_rgba(49,130,246,0.25)]"
+                            : "bg-[#F2F4F6] text-[#4E5968]"
+                        }`}
                       >
-                        {formatRuleValue(rule.type, rule.value)}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          );
-        })}
+                        {on ? `✓ ${rule.name}` : rule.name}
+                        <span
+                          className={`ml-1 ${on ? "text-white/80" : "text-[#8B95A1]"}`}
+                        >
+                          {formatRuleValue(rule.type, rule.value)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+
+        <section className="mt-8 rounded-3xl bg-white p-4">
+          <h3 className="text-[17px] font-bold">첫뻑</h3>
+          <p className="mt-1 mb-3 text-sm text-[#8B95A1]">
+            첫뻑한 사람 빼고 각자 {formatWonPlain(game.cheotppeokUnit)}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {players.map((player) => {
+              const on = draft.cheotppeokPlayerId === player.id;
+              return (
+                <button
+                  key={player.id}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => {
+                    haptic(10);
+                    toggleCheotppeok(player.id);
+                  }}
+                  className={`pressable min-h-11 rounded-full px-3.5 text-sm font-semibold ${
+                    on
+                      ? "chip-on bg-[#3182F6] text-white shadow-[0_6px_14px_rgba(49,130,246,0.25)]"
+                      : "bg-[#F2F4F6] text-[#4E5968]"
+                  }`}
+                >
+                  {on ? `✓ ${player.name}` : player.name}
+                </button>
+              );
+            })}
+          </div>
+        </section>
       </div>
     </ScreenShell>
   );

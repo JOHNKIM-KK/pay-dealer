@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { AmountText } from '../components/AmountText.tsx'
 import { PrimaryButton, SecondaryButton } from '../components/Button.tsx'
-import { ScreenShell, ScreenTitle } from '../components/ScreenShell.tsx'
+import { BackButton, ScreenShell, ScreenTitle } from '../components/ScreenShell.tsx'
 import { calculateGwangSale } from '../engine/gwang.ts'
 import { calculateRound } from '../engine/round.ts'
-import { formatRuleValue, formatWonPlain } from '../lib/format.ts'
+import { formatRuleValue, formatWon, formatWonPlain } from '../lib/format.ts'
 import { useGameStore } from '../store/gameStore.ts'
 
 export function RoundResultScreen() {
@@ -14,7 +14,13 @@ export function RoundResultScreen() {
   const lastResult = useGameStore((state) => state.lastResult)
   const startNextRound = useGameStore((state) => state.startNextRound)
   const continueAfterGwang = useGameStore((state) => state.continueAfterGwang)
+  const undoLastSettlement = useGameStore((state) => state.undoLastSettlement)
   const [openId, setOpenId] = useState<string | null>(null)
+
+  const goBackToEdit = () => {
+    if (!undoLastSettlement()) return
+    navigate('/play')
+  }
 
   if (!game) return <Navigate to="/" replace />
   if (game.status === 'setup') return <Navigate to="/setup" replace />
@@ -52,6 +58,7 @@ export function RoundResultScreen() {
           </PrimaryButton>
         }
       >
+        {lastResult ? <BackButton label="다시 입력" onClick={goBackToEdit} /> : null}
         <ScreenTitle
           kicker="페이딜러 · 광팔기"
           description="광 산 사람만 계산에 들어가요."
@@ -99,6 +106,7 @@ export function RoundResultScreen() {
         </div>
       }
     >
+      {lastResult ? <BackButton label="다시 입력" onClick={goBackToEdit} /> : null}
       <ScreenTitle
         kicker={`페이딜러 · ${game.rounds.length}판`}
         description="눌러보면 계산이 나와요."
@@ -140,6 +148,9 @@ export function RoundResultScreen() {
                     {rule.name} {formatRuleValue(rule.type, rule.value)}
                   </p>
                 ))}
+                {item.cheotppeokAmount !== 0 ? (
+                  <p>첫뻑 {formatWon(item.cheotppeokAmount)}</p>
+                ) : null}
                 {item.role === 'loser' ? (
                   <p className="mt-2 font-medium text-[#191F28]">
                     ({item.effectiveScore} × {item.multiplierProduct} ×{' '}

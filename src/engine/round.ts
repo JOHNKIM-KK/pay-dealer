@@ -47,7 +47,7 @@ function toApplied(rule: Rule): AppliedRule {
 }
 
 export function calculateRound(
-  game: Pick<Game, 'players' | 'pointUnit' | 'rules' | 'rounds' | 'gwangSales'>,
+  game: Pick<Game, 'players' | 'pointUnit' | 'cheotppeokUnit' | 'rules' | 'rounds' | 'gwangSales'>,
   round: Round,
 ): RoundResult {
   const ruleById = new Map(game.rules.map((rule) => [rule.id, rule]))
@@ -94,6 +94,7 @@ export function calculateRound(
       multipliers: [...go.multipliers, ...multipliers.map(toApplied)],
       effectiveScore,
       multiplierProduct,
+      cheotppeokAmount: 0,
       amount: -payment,
     })
   }
@@ -108,19 +109,64 @@ export function calculateRound(
     multipliers: go.multipliers,
     effectiveScore: baseScore,
     multiplierProduct: go.multiplier,
+    cheotppeokAmount: 0,
     amount: winnerTotal,
   }
 
+  const breakdowns = [winnerBreakdown, ...loserBreakdowns]
+  applyCheotppeok(game, round, seated, amounts, breakdowns)
+
   return {
     amounts,
-    breakdowns: [winnerBreakdown, ...loserBreakdowns],
+    breakdowns,
   }
+}
+
+function applyCheotppeok(
+  game: Pick<Game, 'cheotppeokUnit'>,
+  round: Round,
+  seated: Player[],
+  amounts: Record<string, number>,
+  breakdowns: PlayerBreakdown[],
+) {
+  const playerId = round.cheotppeokPlayerId
+  const unit = game.cheotppeokUnit ?? 0
+  if (!playerId || unit <= 0) return
+  if (!seated.some((player) => player.id === playerId)) return
+
+  const others = seated.filter((player) => player.id !== playerId)
+  if (others.length === 0) return
+
+  const received = unit * others.length
+  amounts[playerId] = (amounts[playerId] ?? 0) + received
+  for (const other of others) {
+    amounts[other.id] = (amounts[other.id] ?? 0) - unit
+  }
+
+  for (const breakdown of breakdowns) {
+    if (breakdown.playerId === playerId) {
+      breakdown.cheotppeokAmount = received
+      breakdown.amount += received
+      continue
+    }
+    breakdown.cheotppeokAmount = -unit
+    breakdown.amount -= unit
+  }
+}
+
+export function hasCarriedBalances(game: Pick<Game, 'openingBalances'>): boolean {
+  return Object.values(game.openingBalances ?? {}).some((amount) => amount !== 0)
+}
+
+export function isListedGame(game: Pick<Game, 'status' | 'rounds' | 'gwangSales' | 'openingBalances'>): boolean {
+  if (game.status === 'setup') return false
+  return game.rounds.length > 0 || game.gwangSales.length > 0 || hasCarriedBalances(game)
 }
 
 export function accumulateTotals(game: Game): Record<string, number> {
   const totals: Record<string, number> = {}
   for (const player of game.players) {
-    totals[player.id] = 0
+    totals[player.id] = game.openingBalances?.[player.id] ?? 0
   }
 
   for (const round of game.rounds) {

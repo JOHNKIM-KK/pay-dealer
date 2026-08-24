@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import { gwangBuyers, gwangSaleThisCycle, playingParticipantIds, sittingOutId } from '../engine/gwang.ts'
 import {
+  DEFAULT_CHEOTPPEOK_UNIT,
   DEFAULT_GWANG_UNIT,
   DEFAULT_POINT_UNIT,
   DEFAULT_RULES,
@@ -11,6 +12,7 @@ import {
   defaultScoreForPlayerCount,
   isLoserRule,
 } from '../engine/rules.ts'
+import { accumulateTotals, hasCarriedBalances } from '../engine/round.ts'
 import { createId } from '../lib/id.ts'
 import { isDuplicateName, nextPlayerLabel, normalizeName } from '../lib/names.ts'
 import { BRAND } from '../brand.ts'
@@ -24,6 +26,7 @@ const emptyDraft = (playerCount = MIN_PARTICIPANTS): DraftRound => ({
   winnerId: null,
   score: defaultScoreForPlayerCount(playerCount),
   goType: null,
+  cheotppeokPlayerId: null,
   selectedRules: {},
   dealerId: null,
   sellerId: null,
@@ -47,6 +50,7 @@ function createDefaultGame(): Game {
     participantIds: players.map((player) => player.id),
     pointUnit: DEFAULT_POINT_UNIT,
     gwangUnit: DEFAULT_GWANG_UNIT,
+    cheotppeokUnit: DEFAULT_CHEOTPPEOK_UNIT,
     rules: DEFAULT_RULES.map((rule) => ({ ...rule })),
     rounds: [],
     gwangSales: [],
@@ -55,7 +59,31 @@ function createDefaultGame(): Game {
 }
 
 function hasActivity(game: Game): boolean {
-  return game.rounds.length > 0 || game.gwangSales.length > 0
+  return game.rounds.length > 0 || game.gwangSales.length > 0 || hasCarriedBalances(game)
+}
+
+function parkGame(currentGame: Game | null, recentGames: Game[]): Game[] {
+  if (currentGame && hasActivity(currentGame)) {
+    return [currentGame, ...recentGames.filter((game) => game.id !== currentGame.id)].slice(0, 10)
+  }
+  return recentGames
+}
+
+function cloneRoster(game: Game): {
+  players: Player[]
+  participantIds: string[]
+  idMap: Record<string, string>
+} {
+  const idMap: Record<string, string> = {}
+  const players = game.players.map((player) => {
+    const id = createId()
+    idMap[player.id] = id
+    return { id, name: player.name }
+  })
+  const participantIds = game.participantIds
+    .map((id) => idMap[id])
+    .filter((id): id is string => Boolean(id))
+  return { players, participantIds, idMap }
 }
 
 function seatedPlayerCount(game: Game | null): number {
@@ -80,6 +108,8 @@ interface GameStore {
   lastResult: LastResult | null
   installDismissed: boolean
   startNewGame: () => void
+  startNewGameWithMembers: () => void
+  continueFromSettlement: () => void
   resumeGame: (gameId: string) => void
   removeRecentGame: (gameId: string) => void
   setPlayerName: (playerId: string, name: string) => void
@@ -88,11 +118,13 @@ interface GameStore {
   removePlayer: (playerId: string) => void
   setPointUnit: (pointUnit: number) => void
   setGwangUnit: (gwangUnit: number) => void
+  setCheotppeokUnit: (cheotppeokUnit: number) => void
   toggleRule: (ruleId: string) => void
   setRuleValue: (ruleId: string, value: number) => void
   setRuleType: (ruleId: string, type: RuleType) => void
   toggleParticipant: (playerId: string) => void
   beginGame: () => boolean
+  returnToSetup: () => boolean
   confirmSeats: () => boolean
   setDealer: (dealerId: string) => void
   setSeller: (sellerId: string) => void
@@ -104,8 +136,10 @@ interface GameStore {
   addScore: (delta: number) => void
   toggleGo: (ruleId: string) => void
   setPlayStep: (step: DraftRound['step']) => void
+  toggleCheotppeok: (playerId: string) => void
   togglePenalty: (playerId: string, ruleId: string) => void
   commitRound: () => void
+  undoLastSettlement: () => boolean
   startNextRound: () => void
   continueAfterGwang: () => void
   finishGame: () => void
@@ -129,15 +163,79 @@ export const useGameStore = create<GameStore>()(
 
       startNewGame: () => {
         const { currentGame, recentGames } = get()
-        const nextRecent =
-          currentGame && hasActivity(currentGame)
-            ? [currentGame, ...recentGames.filter((game) => game.id !== currentGame.id)].slice(0, 10)
-            : recentGames
         const nextGame = createDefaultGame()
 
         set({
           currentGame: nextGame,
-          recentGames: nextRecent,
+          recentGames: parkGame(currentGame, recentGames),
+          draftRound: emptyDraft(nextGame.participantIds.length),
+          lastResult: null,
+        })
+      },
+
+      startNewGameWithMembers: () => {
+        const { currentGame, recentGames } = get()
+        if (!currentGame) return
+        const { players, participantIds } = cloneRoster(currentGame)
+        const nextParticipants =
+          participantIds.length >= MIN_PARTICIPANTS
+            ? participantIds
+            : resolveParticipantIds(players, participantIds)
+        const nextGame: Game = {
+          id: createId(),
+          createdAt: Date.now(),
+          players,
+          participantIds: nextParticipants,
+          pointUnit: DEFAULT_POINT_UNIT,
+          gwangUnit: DEFAULT_GWANG_UNIT,
+          cheotppeokUnit: DEFAULT_CHEOTPPEOK_UNIT,
+          rules: DEFAULT_RULES.map((rule) => ({ ...rule })),
+          rounds: [],
+          gwangSales: [],
+          status: 'setup',
+        }
+
+        set({
+          currentGame: nextGame,
+          recentGames: parkGame(currentGame, recentGames),
+          draftRound: emptyDraft(nextGame.participantIds.length),
+          lastResult: null,
+        })
+      },
+
+      continueFromSettlement: () => {
+        const { currentGame, recentGames } = get()
+        if (!currentGame) return
+        const { players, participantIds, idMap } = cloneRoster(currentGame)
+        const nextParticipants =
+          participantIds.length >= MIN_PARTICIPANTS
+            ? participantIds
+            : resolveParticipantIds(players, participantIds)
+        const totals = accumulateTotals(currentGame)
+        const openingBalances: Record<string, number> = {}
+        for (const player of currentGame.players) {
+          const nextId = idMap[player.id]
+          if (!nextId) continue
+          openingBalances[nextId] = totals[player.id] ?? 0
+        }
+        const nextGame: Game = {
+          id: createId(),
+          createdAt: Date.now(),
+          players,
+          participantIds: nextParticipants,
+          pointUnit: currentGame.pointUnit,
+          gwangUnit: currentGame.gwangUnit,
+          cheotppeokUnit: currentGame.cheotppeokUnit,
+          rules: currentGame.rules.map((rule) => ({ ...rule })),
+          rounds: [],
+          gwangSales: [],
+          openingBalances,
+          status: 'playing',
+        }
+
+        set({
+          currentGame: nextGame,
+          recentGames: parkGame(currentGame, recentGames),
           draftRound: emptyDraft(nextGame.participantIds.length),
           lastResult: null,
         })
@@ -162,8 +260,12 @@ export const useGameStore = create<GameStore>()(
       },
 
       removeRecentGame: (gameId) => {
+        const { currentGame, recentGames } = get()
         set({
-          recentGames: get().recentGames.filter((game) => game.id !== gameId),
+          recentGames: recentGames.filter((game) => game.id !== gameId),
+          ...(currentGame?.id === gameId
+            ? { currentGame: null, draftRound: emptyDraft(), lastResult: null }
+            : {}),
         })
       },
 
@@ -259,6 +361,16 @@ export const useGameStore = create<GameStore>()(
         })
       },
 
+      setCheotppeokUnit: (cheotppeokUnit) => {
+        const next = Number.isFinite(cheotppeokUnit) ? Math.max(1, Math.round(cheotppeokUnit)) : 1
+        set({
+          currentGame: updateCurrentGame(get().currentGame, (game) => ({
+            ...game,
+            cheotppeokUnit: next,
+          })),
+        })
+      },
+
       toggleRule: (ruleId) => {
         set({
           currentGame: updateCurrentGame(get().currentGame, (game) => ({
@@ -334,6 +446,20 @@ export const useGameStore = create<GameStore>()(
             status: 'playing',
           },
           draftRound: emptyDraft(participantIds.length),
+          lastResult: null,
+        })
+        return true
+      },
+
+      returnToSetup: () => {
+        const game = get().currentGame
+        if (!game) return false
+        if (game.rounds.length > 0 || game.gwangSales.length > 0 || hasCarriedBalances(game)) {
+          return false
+        }
+        set({
+          currentGame: { ...game, status: 'setup' },
+          draftRound: emptyDraft(game.participantIds.length),
           lastResult: null,
         })
         return true
@@ -451,6 +577,7 @@ export const useGameStore = create<GameStore>()(
             step: 'score',
             score: defaultScoreForPlayerCount(count),
             goType: null,
+            cheotppeokPlayerId: null,
             selectedRules: {},
           },
         })
@@ -490,6 +617,20 @@ export const useGameStore = create<GameStore>()(
           draftRound: {
             ...get().draftRound,
             step,
+          },
+        })
+      },
+
+      toggleCheotppeok: (playerId) => {
+        const game = get().currentGame
+        if (game && !playingParticipantIds(game, get().draftRound.sellerId).includes(playerId)) {
+          return
+        }
+        const current = get().draftRound.cheotppeokPlayerId
+        set({
+          draftRound: {
+            ...get().draftRound,
+            cheotppeokPlayerId: current === playerId ? null : playerId,
           },
         })
       },
@@ -535,6 +676,10 @@ export const useGameStore = create<GameStore>()(
           winnerId: draftRound.winnerId,
           score: draftRound.score,
           goType: draftRound.goType,
+          cheotppeokPlayerId:
+            draftRound.cheotppeokPlayerId && playing.has(draftRound.cheotppeokPlayerId)
+              ? draftRound.cheotppeokPlayerId
+              : null,
           penalties,
           participantIds,
           sitOutId,
@@ -548,6 +693,68 @@ export const useGameStore = create<GameStore>()(
           lastResult: { kind: 'round', id: round.id },
           draftRound: emptyDraft(currentGame.participantIds.length),
         })
+      },
+
+      undoLastSettlement: () => {
+        const { currentGame, lastResult } = get()
+        if (!currentGame || !lastResult) return false
+
+        const lastRound = currentGame.rounds.at(-1)
+        const lastSale = currentGame.gwangSales.at(-1)
+        const lastRoundAt = lastRound?.createdAt ?? 0
+        const lastSaleAt = lastSale?.createdAt ?? 0
+
+        if (lastResult.kind === 'round') {
+          if (!lastRound || lastRound.id !== lastResult.id) return false
+          if (lastSaleAt > lastRoundAt) return false
+
+          const selectedRules: Record<string, string[]> = {}
+          for (const penalty of lastRound.penalties) {
+            selectedRules[penalty.playerId] = [
+              ...(selectedRules[penalty.playerId] ?? []),
+              penalty.type,
+            ]
+          }
+
+          set({
+            currentGame: {
+              ...currentGame,
+              rounds: currentGame.rounds.slice(0, -1),
+            },
+            lastResult: null,
+            draftRound: {
+              step: 'penalties',
+              winnerId: lastRound.winnerId,
+              score: lastRound.score,
+              goType: lastRound.goType,
+              cheotppeokPlayerId: lastRound.cheotppeokPlayerId,
+              selectedRules,
+              dealerId: null,
+              sellerId: lastRound.sitOutId ?? null,
+              gwangCount: 1,
+            },
+          })
+          return true
+        }
+
+        if (!lastSale || lastSale.id !== lastResult.id) return false
+        if (lastRoundAt > lastSaleAt) return false
+
+        set({
+          currentGame: {
+            ...currentGame,
+            gwangSales: currentGame.gwangSales.slice(0, -1),
+          },
+          lastResult: null,
+          draftRound: {
+            ...emptyDraft(currentGame.participantIds.length),
+            step: 'gwang',
+            dealerId: lastSale.dealerId,
+            sellerId: lastSale.sellerId,
+            gwangCount: lastSale.count,
+          },
+        })
+        return true
       },
 
       startNextRound: () => {
@@ -609,7 +816,7 @@ export const useGameStore = create<GameStore>()(
     }),
     {
       name: STORAGE_KEY,
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => ({
         getItem: (name) => {
           const next = localStorage.getItem(name)
@@ -637,12 +844,17 @@ export const useGameStore = create<GameStore>()(
             ...game,
             participantIds,
             gwangUnit: game.gwangUnit ?? DEFAULT_GWANG_UNIT,
+            cheotppeokUnit: game.cheotppeokUnit ?? DEFAULT_CHEOTPPEOK_UNIT,
             gwangSales: game.gwangSales ?? [],
+            openingBalances: game.openingBalances ?? {},
+            rules: (game.rules ?? []).filter((rule) => rule.id !== 'CHEOTPPEOK'),
             rounds: game.rounds.map((round) => ({
               ...round,
               goType: round.goType ?? null,
+              cheotppeokPlayerId: round.cheotppeokPlayerId ?? null,
               createdAt: round.createdAt ?? game.createdAt,
               participantIds: round.participantIds?.length ? round.participantIds : participantIds,
+              penalties: (round.penalties ?? []).filter((penalty) => penalty.type !== 'CHEOTPPEOK'),
             })),
           }
         }
@@ -658,6 +870,7 @@ export const useGameStore = create<GameStore>()(
             dealerId: state.draftRound?.dealerId ?? null,
             sellerId: state.draftRound?.sellerId ?? null,
             gwangCount: state.draftRound?.gwangCount ?? 1,
+            cheotppeokPlayerId: state.draftRound?.cheotppeokPlayerId ?? null,
             step: state.draftRound?.step ?? 'seat',
           },
         }

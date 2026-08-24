@@ -2,7 +2,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { AmountText } from '../components/AmountText.tsx'
 import { PrimaryButton, SecondaryButton } from '../components/Button.tsx'
 import { BackButton, ScreenShell, ScreenTitle } from '../components/ScreenShell.tsx'
-import { accumulateTotals } from '../engine/round.ts'
+import { accumulateTotals, hasCarriedBalances } from '../engine/round.ts'
 import { useGameStore } from '../store/gameStore.ts'
 
 export function SummaryScreen() {
@@ -13,11 +13,12 @@ export function SummaryScreen() {
 
   if (!game) return <Navigate to="/" replace />
   if (game.status === 'setup') return <Navigate to="/setup" replace />
-  if (game.rounds.length === 0 && game.gwangSales.length === 0) {
+  if (game.rounds.length === 0 && game.gwangSales.length === 0 && !hasCarriedBalances(game)) {
     return <Navigate to="/play" replace />
   }
 
   const totals = accumulateTotals(game)
+  const carried = hasCarriedBalances(game)
   const ranked = [...game.players].sort(
     (a, b) => (totals[b.id] ?? 0) - (totals[a.id] ?? 0),
   )
@@ -68,16 +69,17 @@ export function SummaryScreen() {
         </div>
       }
     >
-      <BackButton
-        label="이번 판"
-        onClick={() => navigate(game.rounds.length > 0 || game.gwangSales.length > 0 ? '/round' : '/play')}
-      />
+      <BackButton label="참가자" onClick={() => navigate('/play')} />
       <ScreenTitle
         kicker={`페이딜러 · ${game.rounds.length}판`}
         description="지금까지 이긴 금액을 한눈에 보여드려요."
       >
         오늘 점수
       </ScreenTitle>
+
+      {carried ? (
+        <p className="mb-4 text-sm text-[#8B95A1]">이전 게임 잔액을 이어왔어요.</p>
+      ) : null}
 
       <section className="mb-6 overflow-hidden rounded-3xl bg-white">
         {ranked.map((player, index) => (
@@ -93,20 +95,24 @@ export function SummaryScreen() {
         ))}
       </section>
 
-      <h2 className="mb-3 text-sm font-semibold text-[#8B95A1]">기록</h2>
-      <div className="overflow-hidden rounded-3xl bg-white">
-        {history.map((item, index) => (
-          <div
-            key={item.key}
-            className={`flex items-center justify-between px-5 py-3.5 text-[15px] ${
-              index < history.length - 1 ? 'border-b border-[#F2F4F6]' : ''
-            }`}
-          >
-            <span className="text-[#8B95A1]">{item.label}</span>
-            <span className="font-medium">{item.detail}</span>
+      {history.length > 0 ? (
+        <>
+          <h2 className="mb-3 text-sm font-semibold text-[#8B95A1]">기록</h2>
+          <div className="overflow-hidden rounded-3xl bg-white">
+            {history.map((item, index) => (
+              <div
+                key={item.key}
+                className={`flex items-center justify-between px-5 py-3.5 text-[15px] ${
+                  index < history.length - 1 ? 'border-b border-[#F2F4F6]' : ''
+                }`}
+              >
+                <span className="text-[#8B95A1]">{item.label}</span>
+                <span className="font-medium">{item.detail}</span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </>
+      ) : null}
     </ScreenShell>
   )
 }

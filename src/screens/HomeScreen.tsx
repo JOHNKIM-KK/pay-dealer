@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { BrandMark } from '../components/BrandMark.tsx'
 import { ConfirmSheet } from '../components/ConfirmSheet.tsx'
 import { InstallPrompt } from '../components/InstallPrompt.tsx'
-import { PrimaryButton, SecondaryButton } from '../components/Button.tsx'
+import { PrimaryButton } from '../components/Button.tsx'
 import { ScreenShell } from '../components/ScreenShell.tsx'
+import { isListedGame } from '../engine/round.ts'
 import { BRAND } from '../brand.ts'
 import { haptic } from '../lib/haptic.ts'
 import { useGameStore } from '../store/gameStore.ts'
@@ -20,6 +21,43 @@ function gameLabel(game: Game): string {
   return game.players.map((player) => player.name).join(', ')
 }
 
+function listedGames(current: Game | null, recent: Game[]): Game[] {
+  if (!current || !isListedGame(current)) return recent
+  return [current, ...recent.filter((game) => game.id !== current.id)]
+}
+
+function ChevronIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <path
+        d="M7.25 4.5 12.75 10l-5.5 5.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function MinusIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+      <path d="M2.5 6h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function GameGlyph() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="3" y="6" width="11.5" height="14" rx="2.2" fill="currentColor" opacity="0.32" />
+      <rect x="8.5" y="4" width="11.5" height="14" rx="2.2" fill="currentColor" />
+      <circle cx="14.25" cy="9.5" r="1.6" fill="white" />
+    </svg>
+  )
+}
+
 export function HomeScreen() {
   const navigate = useNavigate()
   const currentGame = useGameStore((state) => state.currentGame)
@@ -28,38 +66,20 @@ export function HomeScreen() {
   const resumeGame = useGameStore((state) => state.resumeGame)
   const removeRecentGame = useGameStore((state) => state.removeRecentGame)
   const [pendingDelete, setPendingDelete] = useState<Game | null>(null)
-
-  const hasCurrent = currentGame !== null
+  const [editing, setEditing] = useState(false)
+  const games = listedGames(currentGame, recentGames)
 
   return (
     <ScreenShell
       footer={
-        <div className="flex flex-col gap-2">
-          {hasCurrent ? (
-            <PrimaryButton onClick={() => navigate(continuePath(currentGame))}>
-              이어서 하기
-            </PrimaryButton>
-          ) : (
-            <PrimaryButton
-              onClick={() => {
-                startNewGame()
-                navigate('/setup')
-              }}
-            >
-              새 게임 시작
-            </PrimaryButton>
-          )}
-          {hasCurrent ? (
-            <SecondaryButton
-              onClick={() => {
-                startNewGame()
-                navigate('/setup')
-              }}
-            >
-              새 게임 시작
-            </SecondaryButton>
-          ) : null}
-        </div>
+        <PrimaryButton
+          onClick={() => {
+            startNewGame()
+            navigate('/setup')
+          }}
+        >
+          새 게임 시작
+        </PrimaryButton>
       }
     >
       <div className="flex flex-1 flex-col">
@@ -75,57 +95,83 @@ export function HomeScreen() {
           </p>
         </div>
 
-        {hasCurrent && (currentGame.rounds.length > 0 || currentGame.gwangSales.length > 0) ? (
-          <p className="mt-6 text-sm text-[#8B95A1]">
-            {currentGame.players.map((player) => player.name).join(' · ')} ·{' '}
-            {currentGame.rounds.length}판 진행 중
-          </p>
-        ) : null}
-
         <InstallPrompt />
 
-        {recentGames.length > 0 ? (
+        {games.length > 0 ? (
           <section className="mt-8 pb-4 home-list">
-            <h2 className="mb-3 text-sm font-semibold text-[#8B95A1]">최근 게임</h2>
-            <div className="flex flex-col gap-2">
-              {recentGames.map((game) => (
-                <div
-                  key={game.id}
-                  className="flex items-center rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
-                >
-                  <button
-                    type="button"
-                    className="pressable flex min-h-16 min-w-0 flex-1 items-center justify-between px-4 py-3 text-left"
-                    onClick={() => {
-                      resumeGame(game.id)
-                      navigate(continuePath(game))
-                    }}
+            <div className="mb-3 flex items-center justify-between px-1">
+              <h2 className="text-[17px] font-bold tracking-tight text-[#191F28]">최근 게임</h2>
+              <button
+                type="button"
+                className="flex h-11 items-center px-1 text-[15px] font-semibold text-[#3182F6]"
+                onClick={() => {
+                  haptic(8)
+                  setEditing((value) => !value)
+                }}
+              >
+                {editing ? '완료' : '편집'}
+              </button>
+            </div>
+            <div className="overflow-hidden rounded-[20px] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+              {games.map((game, index) => {
+                const settled = game.status === 'settled'
+                return (
+                  <div
+                    key={game.id}
+                    className={`flex items-center ${index > 0 ? 'border-t border-[#F2F4F6]' : ''}`}
                   >
-                    <span>
-                      <span className="block font-semibold text-[#191F28]">{gameLabel(game)}</span>
-                      <span className="mt-0.5 block text-sm text-[#8B95A1]">
-                        {game.rounds.length}판 · {game.status === 'settled' ? '정산 완료' : '이어서'}
+                    {editing ? (
+                      <button
+                        type="button"
+                        aria-label={`${gameLabel(game)} 게임 삭제`}
+                        className="pressable ml-1.5 flex h-11 w-11 shrink-0 items-center justify-center"
+                        onClick={() => {
+                          haptic(8)
+                          setPendingDelete(game)
+                        }}
+                      >
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#F04452] text-white">
+                          <MinusIcon />
+                        </span>
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      tabIndex={editing ? -1 : 0}
+                      aria-disabled={editing}
+                      className={`flex min-h-[72px] min-w-0 flex-1 items-center gap-3.5 py-3.5 text-left transition-colors ${
+                        editing ? 'px-3 pr-5' : 'px-5 active:bg-[#F2F4F6]'
+                      }`}
+                      onClick={() => {
+                        if (editing) return
+                        if (currentGame?.id !== game.id) resumeGame(game.id)
+                        navigate(continuePath(game))
+                      }}
+                    >
+                      <span
+                        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] ${
+                          settled ? 'bg-[#F2F4F6] text-[#8B95A1]' : 'bg-[#E8F3FF] text-[#3182F6]'
+                        }`}
+                      >
+                        <GameGlyph />
                       </span>
-                    </span>
-                    <span className="ml-3 text-[#D1D6DB]" aria-hidden>
-                      ›
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`${gameLabel(game)} 게임 삭제`}
-                    className="pressable mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#B0B8C1]"
-                    onClick={() => {
-                      haptic(8)
-                      setPendingDelete(game)
-                    }}
-                  >
-                    <span aria-hidden className="text-lg leading-none">
-                      ×
-                    </span>
-                  </button>
-                </div>
-              ))}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[17px] font-semibold tracking-tight text-[#191F28]">
+                          {gameLabel(game)}
+                        </span>
+                        <span className="mt-0.5 block text-[14px] leading-5 text-[#8B95A1]">
+                          {game.rounds.length}판 · {settled ? '정산 완료' : '이어서'}
+                        </span>
+                      </span>
+                      {editing ? null : (
+                        <span className="shrink-0 text-[#D1D6DB]" aria-hidden>
+                          <ChevronIcon />
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                )
+              })}
             </div>
           </section>
         ) : (
@@ -141,8 +187,10 @@ export function HomeScreen() {
           onClose={() => setPendingDelete(null)}
           onConfirm={() => {
             haptic(16)
+            const lastItem = games.length <= 1
             removeRecentGame(pendingDelete.id)
             setPendingDelete(null)
+            if (lastItem) setEditing(false)
           }}
         />
       ) : null}
