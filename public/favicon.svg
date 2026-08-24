@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="고스톱 정산판">
+  <rect width="512" height="512" rx="112" fill="#3182F6"/>
+  <rect x="150" y="146" width="168" height="228" rx="28" fill="#ffffff" opacity="0.35" transform="rotate(-12 234 260)"/>
+  <rect x="196" y="132" width="168" height="228" rx="28" fill="#ffffff"/>
+  <circle cx="280" cy="214" r="26" fill="#3182F6"/>
+</svg>

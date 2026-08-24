@@ -1,0 +1,133 @@
+@import "tailwindcss";
+
+html,
+body,
+#root {
+  min-height: 100dvh;
+}
+
+body {
+  margin: 0;
+  background: #f2f4f6;
+  color: #191f28;
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a {
+  touch-action: manipulation;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes step-in {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes score-pop {
+  0% {
+    transform: scale(0.86);
+    opacity: 0.55;
+  }
+  60% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes chip-on {
+  0% {
+    transform: scale(0.92);
+  }
+  70% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes winner-pick {
+  0% {
+    transform: scale(1);
+  }
+  55% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1.03);
+  }
+}
+
+.rise-in {
+  animation: rise-in 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.step-in {
+  animation: step-in 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.score-pop {
+  animation: score-pop 0.32s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+
+.chip-on {
+  animation: chip-on 0.28s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+
+.winner-pick {
+  animation: winner-pick 0.28s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+
+.pressable {
+  transition:
+    transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.18s ease,
+    box-shadow 0.18s ease,
+    color 0.18s ease;
+}
+
+.pressable:active {
+  transform: scale(0.96);
+}
+
+.stagger-1 {
+  animation-delay: 40ms;
+}
+.stagger-2 {
+  animation-delay: 80ms;
+}
+.stagger-3 {
+  animation-delay: 120ms;
+}
+.stagger-4 {
+  animation-delay: 160ms;
+}
