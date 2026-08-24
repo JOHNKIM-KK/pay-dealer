@@ -14,7 +14,7 @@ import {
 import { createId } from '../lib/id.ts'
 import { isDuplicateName, nextPlayerLabel, normalizeName } from '../lib/names.ts'
 import { BRAND } from '../brand.ts'
-import type { DraftRound, Game, LastResult, Player, Rule } from '../types/game.ts'
+import type { DraftRound, Game, LastResult, Player, Rule, RuleType } from '../types/game.ts'
 
 const STORAGE_KEY = BRAND.en
 const LEGACY_STORAGE_KEY = 'gostop-settlement'
@@ -58,9 +58,8 @@ function hasActivity(game: Game): boolean {
   return game.rounds.length > 0 || game.gwangSales.length > 0
 }
 
-function activePlayerCount(game: Game | null, sellerId?: string | null): number {
-  if (!game) return MIN_PARTICIPANTS
-  return playingParticipantIds(game, sellerId).length || MIN_PARTICIPANTS
+function seatedPlayerCount(game: Game | null): number {
+  return game?.participantIds.length || MIN_PARTICIPANTS
 }
 
 function resolveParticipantIds(players: Player[], currentIds: string[]): string[] {
@@ -91,6 +90,7 @@ interface GameStore {
   setGwangUnit: (gwangUnit: number) => void
   toggleRule: (ruleId: string) => void
   setRuleValue: (ruleId: string, value: number) => void
+  setRuleType: (ruleId: string, type: RuleType) => void
   toggleParticipant: (playerId: string) => void
   beginGame: () => boolean
   confirmSeats: () => boolean
@@ -133,11 +133,12 @@ export const useGameStore = create<GameStore>()(
           currentGame && hasActivity(currentGame)
             ? [currentGame, ...recentGames.filter((game) => game.id !== currentGame.id)].slice(0, 10)
             : recentGames
+        const nextGame = createDefaultGame()
 
         set({
-          currentGame: createDefaultGame(),
+          currentGame: nextGame,
           recentGames: nextRecent,
-          draftRound: emptyDraft(),
+          draftRound: emptyDraft(nextGame.participantIds.length),
           lastResult: null,
         })
       },
@@ -281,6 +282,17 @@ export const useGameStore = create<GameStore>()(
         })
       },
 
+      setRuleType: (ruleId, type) => {
+        set({
+          currentGame: updateCurrentGame(get().currentGame, (game) => ({
+            ...game,
+            rules: game.rules.map((rule): Rule =>
+              rule.id === ruleId ? { ...rule, type } : rule,
+            ),
+          })),
+        })
+      },
+
       toggleParticipant: (playerId) => {
         set({
           currentGame: updateCurrentGame(get().currentGame, (game) => {
@@ -304,6 +316,7 @@ export const useGameStore = create<GameStore>()(
         const current = get().currentGame
         if (!current) return false
         const names = current.players.map((player) => player.name)
+        if (current.players.length < MIN_PLAYERS) return false
         if (names.some((name) => !normalizeName(name))) return false
         if (names.some((name, index) => isDuplicateName(names, name, index))) return false
 
@@ -343,7 +356,7 @@ export const useGameStore = create<GameStore>()(
             ...emptyDraft(count),
             step: count >= MAX_PARTICIPANTS && !sale ? 'gwang' : 'winner',
             sellerId: sale?.sellerId ?? null,
-            score: defaultScoreForPlayerCount(playingParticipantIds(game, sale?.sellerId).length),
+            score: defaultScoreForPlayerCount(count),
           },
         })
         return true
@@ -430,7 +443,7 @@ export const useGameStore = create<GameStore>()(
           ? playingParticipantIds(currentGame, draftRound.sellerId)
           : []
         if (playingIds.length > 0 && !playingIds.includes(winnerId)) return
-        const count = activePlayerCount(currentGame, draftRound.sellerId)
+        const count = seatedPlayerCount(currentGame)
         set({
           draftRound: {
             ...get().draftRound,
@@ -546,7 +559,7 @@ export const useGameStore = create<GameStore>()(
       },
 
       continueAfterGwang: () => {
-        const count = activePlayerCount(get().currentGame, get().draftRound.sellerId)
+        const count = seatedPlayerCount(get().currentGame)
         set({
           draftRound: {
             ...get().draftRound,

@@ -22,6 +22,30 @@ function seatedPlayers(game: Pick<Game, 'players'>, participantIds: string[]): P
   return game.players.filter((player) => seated.has(player.id))
 }
 
+function goParts(go: AppliedRule | null): {
+  additive: number
+  multiplier: number
+  additives: AppliedRule[]
+  multipliers: AppliedRule[]
+} {
+  if (!go) {
+    return { additive: 0, multiplier: 1, additives: [], multipliers: [] }
+  }
+  if (go.type === 'ADDITIVE') {
+    return { additive: go.value, multiplier: 1, additives: [go], multipliers: [] }
+  }
+  return { additive: 0, multiplier: go.value, additives: [], multipliers: [go] }
+}
+
+function toApplied(rule: Rule): AppliedRule {
+  return {
+    id: rule.id,
+    name: rule.name,
+    type: rule.type,
+    value: rule.value,
+  }
+}
+
 export function calculateRound(
   game: Pick<Game, 'players' | 'pointUnit' | 'rules' | 'rounds' | 'gwangSales'>,
   round: Round,
@@ -29,9 +53,8 @@ export function calculateRound(
   const ruleById = new Map(game.rules.map((rule) => [rule.id, rule]))
   const amounts: Record<string, number> = {}
   const loserBreakdowns: PlayerBreakdown[] = []
-  const go = resolveGo(game, round)
-  const goValue = go?.value ?? 0
-  const baseScore = round.score + goValue
+  const go = goParts(resolveGo(game, round))
+  const baseScore = round.score + go.additive
   const sitOut = sittingOutIdForRound(game, round)
   const seated = seatedPlayers(game, round.participantIds).filter(
     (player) => player.id !== sitOut,
@@ -55,34 +78,20 @@ export function calculateRound(
     const additives = applied.filter((rule) => rule.type === 'ADDITIVE')
     const multipliers = applied.filter((rule) => rule.type === 'MULTIPLIER')
     const additiveSum = additives.reduce((sum, rule) => sum + rule.value, 0)
-    const multiplierProduct = multipliers.reduce((product, rule) => product * rule.value, 1)
+    const multiplierProduct =
+      go.multiplier * multipliers.reduce((product, rule) => product * rule.value, 1)
     const effectiveScore = baseScore + additiveSum
     const payment = effectiveScore * multiplierProduct * game.pointUnit
 
     amounts[player.id] = -payment
     winnerTotal += payment
 
-    const listedAdditives: AppliedRule[] = [
-      ...(go ? [go] : []),
-      ...additives.map((rule) => ({
-        id: rule.id,
-        name: rule.name,
-        type: rule.type,
-        value: rule.value,
-      })),
-    ]
-
     loserBreakdowns.push({
       playerId: player.id,
       role: 'loser',
       score: round.score,
-      additives: listedAdditives,
-      multipliers: multipliers.map((rule) => ({
-        id: rule.id,
-        name: rule.name,
-        type: rule.type,
-        value: rule.value,
-      })),
+      additives: [...go.additives, ...additives.map(toApplied)],
+      multipliers: [...go.multipliers, ...multipliers.map(toApplied)],
       effectiveScore,
       multiplierProduct,
       amount: -payment,
@@ -95,10 +104,10 @@ export function calculateRound(
     playerId: round.winnerId,
     role: 'winner',
     score: round.score,
-    additives: go ? [go] : [],
-    multipliers: [],
+    additives: go.additives,
+    multipliers: go.multipliers,
     effectiveScore: baseScore,
-    multiplierProduct: 1,
+    multiplierProduct: go.multiplier,
     amount: winnerTotal,
   }
 

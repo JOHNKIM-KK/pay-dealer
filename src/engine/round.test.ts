@@ -56,7 +56,16 @@ describe('calculateRound', () => {
     expect(result.amounts.waiting).toBe(0)
   })
 
-  it('쓰리고는 승자 고로 앉은 패자에게만 적용된다', () => {
+  it('원고는 점수에 더한다', () => {
+    const result = calculateRound(makeGame(), makeRound({ goType: 'WONGO' }))
+
+    expect(result.amounts.myungjun).toBe(-800)
+    expect(result.amounts.jisu).toBe(-800)
+    expect(result.amounts.youngjun).toBe(-800)
+    expect(result.amounts.sohee).toBe(2400)
+  })
+
+  it('쓰리고는 점수에 곱하고 앉은 패자에게만 적용된다', () => {
     const result = calculateRound(
       makeGame(),
       makeRound({
@@ -65,11 +74,42 @@ describe('calculateRound', () => {
       }),
     )
 
-    expect(result.amounts.jisu).toBe(-2000)
-    expect(result.amounts.myungjun).toBe(-1000)
-    expect(result.amounts.youngjun).toBe(-1000)
-    expect(result.amounts.sohee).toBe(4000)
+    expect(result.amounts.jisu).toBe(-2800)
+    expect(result.amounts.myungjun).toBe(-1400)
+    expect(result.amounts.youngjun).toBe(-1400)
+    expect(result.amounts.sohee).toBe(5600)
     expect(result.amounts.waiting).toBe(0)
+  })
+
+  it('4고와 5고도 배수로 계산한다', () => {
+    const four = calculateRound(makeGame(), makeRound({ goType: 'FOURGO' }))
+    const five = calculateRound(
+      makeGame(),
+      makeRound({
+        goType: 'FIVEGO',
+        penalties: [{ playerId: 'jisu', type: 'GWANGBAK' }],
+      }),
+    )
+
+    expect(four.amounts.myungjun).toBe(-1400)
+    expect(four.amounts.sohee).toBe(4200)
+    expect(five.amounts.jisu).toBe(-2800)
+    expect(five.amounts.myungjun).toBe(-1400)
+    expect(five.amounts.sohee).toBe(5600)
+  })
+
+  it('고를 더하기로 바꾸면 점수에 더한다', () => {
+    const result = calculateRound(
+      makeGame([], {
+        rules: DEFAULT_RULES.map((rule) =>
+          rule.id === 'SSEURIGO' ? { ...rule, type: 'ADDITIVE', value: 3 } : rule,
+        ),
+      }),
+      makeRound({ goType: 'SSEURIGO' }),
+    )
+
+    expect(result.amounts.myungjun).toBe(-1000)
+    expect(result.amounts.sohee).toBe(3000)
   })
 
   it('3명만 앉으면 나머지 대기 인원은 0원이다', () => {

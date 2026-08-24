@@ -75,29 +75,40 @@ describe('game flow', () => {
     expect(afterRound.rounds[0].goType).toBe('SSEURIGO')
 
     const result = calculateRound(afterRound, afterRound.rounds[0])
-    expect(result.amounts[myungjun.id]).toBe(-2000)
-    expect(result.amounts[jisu.id]).toBe(-2000)
-    expect(result.amounts[youngjun.id]).toBe(-1300)
-    expect(result.amounts[sohee.id]).toBe(5300)
+    expect(result.amounts[myungjun.id]).toBe(-2800)
+    expect(result.amounts[jisu.id]).toBe(-2800)
+    expect(result.amounts[youngjun.id]).toBe(-2000)
+    expect(result.amounts[sohee.id]).toBe(7600)
 
     const totals = accumulateTotals(afterRound)
     const transfers = minimizeTransfers(totals)
     expect(transfers).toEqual([
-      { fromId: myungjun.id, toId: sohee.id, amount: 2000 },
-      { fromId: jisu.id, toId: sohee.id, amount: 2000 },
-      { fromId: youngjun.id, toId: sohee.id, amount: 1300 },
+      { fromId: myungjun.id, toId: sohee.id, amount: 2800 },
+      { fromId: jisu.id, toId: sohee.id, amount: 2800 },
+      { fromId: youngjun.id, toId: sohee.id, amount: 2000 },
     ])
   })
 
-  it('3명이면 맞고, 4명이면 광팔기 먼저다', () => {
+  it('2명이면 맞고, 3명이면 고스톱, 4명이면 광팔기 먼저다', () => {
     const store = useGameStore.getState()
+    store.startNewGame()
+    const twoSetup = useGameStore.getState().currentGame!
+    store.removePlayer(twoSetup.players[2].id)
+    store.beginGame()
+    store.confirmSeats()
+    expect(useGameStore.getState().draftRound.step).toBe('winner')
+    const two = useGameStore.getState().currentGame!
+    expect(two.participantIds).toHaveLength(2)
+    store.setWinner(two.players[0].id)
+    expect(useGameStore.getState().draftRound.score).toBe(7)
+
     store.startNewGame()
     store.beginGame()
     store.confirmSeats()
     expect(useGameStore.getState().draftRound.step).toBe('winner')
     const three = useGameStore.getState().currentGame!
     store.setWinner(three.players[0].id)
-    expect(useGameStore.getState().draftRound.score).toBe(7)
+    expect(useGameStore.getState().draftRound.score).toBe(3)
 
     store.startNewGame()
     store.addPlayer()
@@ -175,7 +186,7 @@ describe('game flow', () => {
 
     store.setWinner(dealer.id)
     expect(useGameStore.getState().draftRound.winnerId).toBe(dealer.id)
-    expect(useGameStore.getState().draftRound.score).toBe(7)
+    expect(useGameStore.getState().draftRound.score).toBe(3)
 
     store.togglePenalty(seller.id, 'PIBAK')
     store.togglePenalty(buyerA.id, 'PIBAK')

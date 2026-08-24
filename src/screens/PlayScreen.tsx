@@ -157,7 +157,7 @@ function SeatStep() {
           ? `${gameModeLabel(count)} · 기본 ${defaultScoreForPlayerCount(count)}점${
               count >= MAX_PARTICIPANTS ? " · 광팔기 켜짐" : ""
             }`
-          : "3명 이상 골라야 시작할 수 있어요."}
+          : "2명 이상 골라야 시작할 수 있어요."}
       </p>
     </ScreenShell>
   );
@@ -396,9 +396,11 @@ function ScoreStep() {
     (rule) => rule.enabled && isGoRule(rule.id),
   );
   const selectedGo = goRules.find((rule) => rule.id === draft.goType);
-  const totalScore = draft.score + (selectedGo?.value ?? 0);
+  const totalScore =
+    draft.score + (selectedGo?.type === "ADDITIVE" ? selectedGo.value : 0);
+  const seatedCount = game.participantIds.length;
   const count = playingParticipantIds(game, draft.sellerId).length;
-  const mode = gameModeLabel(count);
+  const mode = gameModeLabel(seatedCount);
 
   if (!winner) return <WinnerStep />;
 
@@ -430,7 +432,7 @@ function ScoreStep() {
       <div className="step-in">
         <div className="flex flex-col items-center">
           <p
-            key={totalScore}
+            key={`${totalScore}-${selectedGo?.id ?? ""}`}
             className="score-pop text-7xl font-bold tabular-nums tracking-tight"
           >
             {totalScore}
@@ -438,7 +440,9 @@ function ScoreStep() {
           <p className="mt-1 text-lg text-[#8B95A1]">점</p>
           <p className="mt-2 text-sm text-[#8B95A1]">
             {mode} · {count}명
-            {selectedGo ? ` · ${selectedGo.name} +${selectedGo.value}점` : ""}
+            {selectedGo
+              ? ` · ${selectedGo.name} ${formatRuleValue(selectedGo.type, selectedGo.value)}`
+              : ""}
           </p>
         </div>
 

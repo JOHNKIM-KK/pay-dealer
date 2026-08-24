@@ -6,15 +6,17 @@ export const DEFAULT_RULES: Rule[] = [
   { id: 'MEONGBAK', name: '멍박', type: 'MULTIPLIER', value: 2, enabled: true },
   { id: 'CHEOTPPEOK', name: '첫뻑', type: 'ADDITIVE', value: 3, enabled: true },
   { id: 'WONGO', name: '원고', type: 'ADDITIVE', value: 1, enabled: true },
-  { id: 'TUGO', name: '투고', type: 'ADDITIVE', value: 2, enabled: true },
-  { id: 'SSEURIGO', name: '쓰리고', type: 'ADDITIVE', value: 3, enabled: true },
+  { id: 'TUGO', name: '투고', type: 'ADDITIVE', value: 1, enabled: true },
+  { id: 'SSEURIGO', name: '쓰리고', type: 'MULTIPLIER', value: 2, enabled: true },
+  { id: 'FOURGO', name: '4고', type: 'MULTIPLIER', value: 2, enabled: true },
+  { id: 'FIVEGO', name: '5고', type: 'MULTIPLIER', value: 2, enabled: true },
 ]
 
-export const GO_RULE_IDS = ['WONGO', 'TUGO', 'SSEURIGO'] as const
+export const GO_RULE_IDS = ['WONGO', 'TUGO', 'SSEURIGO', 'FOURGO', 'FIVEGO'] as const
 export const LOSER_RULE_IDS = ['PIBAK', 'GWANGBAK', 'MEONGBAK', 'CHEOTPPEOK'] as const
 
-export const MIN_PLAYERS = 3
-export const MIN_PARTICIPANTS = 3
+export const MIN_PLAYERS = 2
+export const MIN_PARTICIPANTS = 2
 export const MAX_PARTICIPANTS = 4
 export const DEFAULT_POINT_UNIT = 100
 export const DEFAULT_GWANG_UNIT = 1000
@@ -22,11 +24,11 @@ export const MATGO_SCORE = 7
 export const GOSTOP_SCORE = 3
 
 export function defaultScoreForPlayerCount(count: number): number {
-  return count <= 3 ? MATGO_SCORE : GOSTOP_SCORE
+  return count <= 2 ? MATGO_SCORE : GOSTOP_SCORE
 }
 
 export function gameModeLabel(count: number): string {
-  return count <= 3 ? '맞고' : '고스톱'
+  return count <= 2 ? '맞고' : '고스톱'
 }
 
 export function isGoRule(ruleId: string): boolean {
