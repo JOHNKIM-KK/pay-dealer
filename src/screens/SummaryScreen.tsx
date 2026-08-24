@@ -10,7 +10,6 @@ export function SummaryScreen() {
   const game = useGameStore((state) => state.currentGame)
   const startNextRound = useGameStore((state) => state.startNextRound)
   const finishGame = useGameStore((state) => state.finishGame)
-  const setPlayStep = useGameStore((state) => state.setPlayStep)
 
   if (!game) return <Navigate to="/" replace />
   if (game.status === 'setup') return <Navigate to="/setup" replace />
@@ -57,16 +56,6 @@ export function SummaryScreen() {
             >
               다음 판
             </PrimaryButton>
-          ) : null}
-          {game.status !== 'settled' ? (
-            <SecondaryButton
-              onClick={() => {
-                setPlayStep('seat')
-                navigate('/play')
-              }}
-            >
-              참가자 바꾸기
-            </SecondaryButton>
           ) : null}
           <SecondaryButton
             onClick={() => {

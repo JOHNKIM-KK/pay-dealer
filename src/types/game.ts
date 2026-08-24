@@ -32,6 +32,7 @@ export interface Round {
   goType: string | null
   penalties: Penalty[]
   participantIds: string[]
+  sitOutId?: string | null
 }
 
 export interface GwangSale {

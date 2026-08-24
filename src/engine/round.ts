@@ -1,4 +1,4 @@
-import { calculateGwangSale } from './gwang.ts'
+import { calculateGwangSale, sittingOutIdForRound } from './gwang.ts'
 import type { AppliedRule, Game, Player, PlayerBreakdown, Round, RoundResult, Rule } from '../types/game.ts'
 
 function resolveGo(
@@ -23,7 +23,7 @@ function seatedPlayers(game: Pick<Game, 'players'>, participantIds: string[]): P
 }
 
 export function calculateRound(
-  game: Pick<Game, 'players' | 'pointUnit' | 'rules'>,
+  game: Pick<Game, 'players' | 'pointUnit' | 'rules' | 'rounds' | 'gwangSales'>,
   round: Round,
 ): RoundResult {
   const ruleById = new Map(game.rules.map((rule) => [rule.id, rule]))
@@ -32,7 +32,10 @@ export function calculateRound(
   const go = resolveGo(game, round)
   const goValue = go?.value ?? 0
   const baseScore = round.score + goValue
-  const seated = seatedPlayers(game, round.participantIds)
+  const sitOut = sittingOutIdForRound(game, round)
+  const seated = seatedPlayers(game, round.participantIds).filter(
+    (player) => player.id !== sitOut,
+  )
 
   for (const player of game.players) {
     amounts[player.id] = 0

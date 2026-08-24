@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
-import { gwangBuyers } from '../engine/gwang.ts'
+import { gwangBuyers, gwangSaleThisCycle, playingParticipantIds, sittingOutId } from '../engine/gwang.ts'
 import {
   DEFAULT_GWANG_UNIT,
   DEFAULT_POINT_UNIT,
@@ -56,6 +56,11 @@ function createDefaultGame(): Game {
 
 function hasActivity(game: Game): boolean {
   return game.rounds.length > 0 || game.gwangSales.length > 0
+}
+
+function activePlayerCount(game: Game | null, sellerId?: string | null): number {
+  if (!game) return MIN_PARTICIPANTS
+  return playingParticipantIds(game, sellerId).length || MIN_PARTICIPANTS
 }
 
 function resolveParticipantIds(players: Player[], currentIds: string[]): string[] {
@@ -332,11 +337,13 @@ export const useGameStore = create<GameStore>()(
         }
 
         const count = game.participantIds.length
+        const sale = count >= MAX_PARTICIPANTS ? gwangSaleThisCycle(game) : undefined
         set({
           draftRound: {
             ...emptyDraft(count),
-            step: count >= MAX_PARTICIPANTS ? 'gwang' : 'winner',
-            score: defaultScoreForPlayerCount(count),
+            step: count >= MAX_PARTICIPANTS && !sale ? 'gwang' : 'winner',
+            sellerId: sale?.sellerId ?? null,
+            score: defaultScoreForPlayerCount(playingParticipantIds(game, sale?.sellerId).length),
           },
         })
         return true
@@ -412,14 +419,18 @@ export const useGameStore = create<GameStore>()(
           draftRound: {
             ...draftRound,
             dealerId: null,
-            sellerId: null,
             gwangCount: 1,
           },
         })
       },
 
       setWinner: (winnerId) => {
-        const count = get().currentGame?.participantIds.length ?? MIN_PARTICIPANTS
+        const { currentGame, draftRound } = get()
+        const playingIds = currentGame
+          ? playingParticipantIds(currentGame, draftRound.sellerId)
+          : []
+        if (playingIds.length > 0 && !playingIds.includes(winnerId)) return
+        const count = activePlayerCount(currentGame, draftRound.sellerId)
         set({
           draftRound: {
             ...get().draftRound,
@@ -472,6 +483,8 @@ export const useGameStore = create<GameStore>()(
 
       togglePenalty: (playerId, ruleId) => {
         if (!isLoserRule(ruleId)) return
+        const game = get().currentGame
+        if (game && !playingParticipantIds(game, get().draftRound.sellerId).includes(playerId)) return
         const selected = get().draftRound.selectedRules[playerId] ?? []
         const nextForPlayer = selected.includes(ruleId)
           ? selected.filter((id) => id !== ruleId)
@@ -491,10 +504,16 @@ export const useGameStore = create<GameStore>()(
       commitRound: () => {
         const { currentGame, draftRound } = get()
         if (!currentGame || !draftRound.winnerId) return
+        const participantIds = playingParticipantIds(currentGame, draftRound.sellerId)
+        if (!participantIds.includes(draftRound.winnerId)) return
 
+        const playing = new Set(participantIds)
+        const sitOutId = sittingOutId(currentGame, draftRound.sellerId)
         const penalties = Object.entries(draftRound.selectedRules).flatMap(
           ([playerId, ruleIds]) =>
-            ruleIds.map((type) => ({ playerId, type })),
+            playing.has(playerId) && playerId !== draftRound.winnerId
+              ? ruleIds.map((type) => ({ playerId, type }))
+              : [],
         )
 
         const round = {
@@ -504,7 +523,8 @@ export const useGameStore = create<GameStore>()(
           score: draftRound.score,
           goType: draftRound.goType,
           penalties,
-          participantIds: [...currentGame.participantIds],
+          participantIds,
+          sitOutId,
         }
 
         set({
@@ -526,7 +546,7 @@ export const useGameStore = create<GameStore>()(
       },
 
       continueAfterGwang: () => {
-        const count = get().currentGame?.participantIds.length ?? MIN_PARTICIPANTS
+        const count = activePlayerCount(get().currentGame, get().draftRound.sellerId)
         set({
           draftRound: {
             ...get().draftRound,

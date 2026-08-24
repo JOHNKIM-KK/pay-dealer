@@ -42,17 +42,14 @@ export function RoundResultScreen() {
     return (
       <ScreenShell
         footer={
-          <div className="flex flex-col gap-2">
-            <PrimaryButton
-              onClick={() => {
-                continueAfterGwang()
-                navigate('/play')
-              }}
-            >
-              승자 선택
-            </PrimaryButton>
-            <SecondaryButton onClick={() => navigate('/summary')}>전체 현황</SecondaryButton>
-          </div>
+          <PrimaryButton
+            onClick={() => {
+              continueAfterGwang()
+              navigate('/play')
+            }}
+          >
+            승자 선택
+          </PrimaryButton>
         }
       >
         <ScreenTitle

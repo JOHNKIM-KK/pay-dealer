@@ -156,6 +156,42 @@ describe('game flow', () => {
     expect(amounts[buyerB.id]).toBe(-2000)
   })
 
+  it('광 판 사람은 승자/패자 목록과 이번 판 정산에서 빠진다', () => {
+    const store = useGameStore.getState()
+    store.startNewGame()
+    store.addPlayer()
+    store.beginGame()
+    store.confirmSeats()
+    const playing = useGameStore.getState().currentGame!
+    const [dealer, seller, buyerA, buyerB] = playing.players
+    store.setDealer(dealer.id)
+    store.setSeller(seller.id)
+    store.commitGwangSale()
+    store.continueAfterGwang()
+    expect(useGameStore.getState().draftRound.sellerId).toBe(seller.id)
+
+    store.setWinner(seller.id)
+    expect(useGameStore.getState().draftRound.winnerId).toBeNull()
+
+    store.setWinner(dealer.id)
+    expect(useGameStore.getState().draftRound.winnerId).toBe(dealer.id)
+    expect(useGameStore.getState().draftRound.score).toBe(7)
+
+    store.togglePenalty(seller.id, 'PIBAK')
+    store.togglePenalty(buyerA.id, 'PIBAK')
+    store.commitRound()
+
+    const after = useGameStore.getState().currentGame!
+    const round = after.rounds[0]
+    expect(round.participantIds).toEqual([dealer.id, buyerA.id, buyerB.id])
+    expect(round.sitOutId).toBe(seller.id)
+    expect(round.penalties).toEqual([{ playerId: buyerA.id, type: 'PIBAK' }])
+
+    const result = calculateRound(after, round)
+    expect(result.amounts[seller.id]).toBe(0)
+    expect(result.breakdowns.map((item) => item.playerId)).not.toContain(seller.id)
+  })
+
   it('최근 게임을 삭제한다', () => {
     const store = useGameStore.getState()
     store.startNewGame()

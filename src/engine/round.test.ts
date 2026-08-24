@@ -87,6 +87,31 @@ describe('calculateRound', () => {
     expect(result.amounts.youngjun).toBe(0)
     expect(result.amounts.waiting).toBe(0)
   })
+
+  it('광 판 사람은 참가자 목록에 있어도 이번 판에서 마이너스하지 않는다', () => {
+    const round = makeRound({ createdAt: 20 })
+    const result = calculateRound(
+      makeGame([round], {
+        gwangSales: [
+          {
+            id: 'g1',
+            createdAt: 10,
+            dealerId: 'sohee',
+            sellerId: 'youngjun',
+            buyerIds: ['myungjun', 'jisu'],
+            count: 1,
+          },
+        ],
+      }),
+      round,
+    )
+
+    expect(result.amounts.youngjun).toBe(0)
+    expect(result.breakdowns.map((item) => item.playerId)).not.toContain('youngjun')
+    expect(result.amounts.myungjun).toBe(-700)
+    expect(result.amounts.jisu).toBe(-700)
+    expect(result.amounts.sohee).toBe(1400)
+  })
 })
 
 describe('accumulateTotals', () => {
